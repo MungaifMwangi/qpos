@@ -111,18 +111,24 @@ class OrderController extends Controller
             $cart->product->save();
         }
         $total = $totalAmountOrder - $orderDiscount;
-        $due = $total - $request->paid;
+        // The customer may tender more than the total; only the amount up to the
+        // total settles the order, the rest is change handed back at the counter.
+        $tendered = (float) $request->paid;
+        $paidApplied = min($tendered, (float) $total);
+        $change = max($tendered - (float) $total, 0);
+        $due = $total - $paidApplied;
         $order->sub_total = $totalAmountOrder;
         $order->discount = $orderDiscount;
-        $order->paid = $request->paid;
+        $order->paid = round($paidApplied, 2);
+        $order->change_amount = round($change, 2);
         $order->total = round((float)$total, 2);
         $order->due = round((float)$due, 2);
         $order->status = round((float)$due, 2) <= 0;
         $order->save();
         //create order transaction
-        if ($request->paid > 0) {
+        if ($paidApplied > 0) {
             $orderTransaction = $order->transactions()->create([
-                'amount' => $request->paid,
+                'amount' => round($paidApplied, 2),
                 'customer_id' => $order->customer_id,
                 'user_id' => auth()->id(),
                 'paid_by' => 'cash',

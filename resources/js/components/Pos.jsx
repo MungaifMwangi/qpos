@@ -9,12 +9,26 @@ import SuccessSound from "../sounds/beep-07a.mp3";
 import WarningSound from "../sounds/beep-02.mp3";
 import playSound from "../utils/playSound";
 
+// Build a human-readable message from an axios error. Laravel validation
+// errors (HTTP 422) live in `response.data.errors` keyed by field, so we
+// surface those first, then fall back to a generic message/network error.
+function getErrorMessage(err, fallback = "Something went wrong. Please try again.") {
+    const data = err?.response?.data;
+    if (data?.errors && typeof data.errors === "object") {
+        const messages = Object.values(data.errors).flat().filter(Boolean);
+        if (messages.length) return messages.join("\n");
+    }
+    if (data?.message) return data.message;
+    return err?.message || fallback;
+}
+
 export default function Pos() {
     const [products, setProducts] = useState([]);
     const [carts, setCarts] = useState([]);
     const [orderDiscount, setOrderDiscount] = useState(0);
     const [paid, setPaid] = useState(0);
     const [due, setDue] = useState(0);
+    const [change, setChange] = useState(0);
     const [total, setTotal] = useState(0);
     const [updateTotal, setUpdateTotal] = useState(0);
     const [customerId, setCustomerId] = useState();
@@ -95,9 +109,11 @@ export default function Pos() {
             disc = 0;
         }
         const updatedTotalAmount = parseFloat(total) - parseFloat(disc);
-        const dueAmount = updatedTotalAmount - parseFloat(paid1);
+        // Positive balance => still owed (due); negative => overpaid (change to return).
+        const balance = updatedTotalAmount - parseFloat(paid1);
         setUpdateTotal(updatedTotalAmount?.toFixed(2));
-        setDue(dueAmount?.toFixed(2));
+        setDue((balance > 0 ? balance : 0).toFixed(2));
+        setChange((balance < 0 ? -balance : 0).toFixed(2));
     }, [orderDiscount, paid, total]);
     useEffect(() => {
         if (searchQuery) {
@@ -144,7 +160,7 @@ export default function Pos() {
             })
             .catch((err) => {
                 playSound(WarningSound);
-                toast.error(err.response.data.message);
+                toast.error(getErrorMessage(err));
             });
     }
     function cartEmpty() {
@@ -173,7 +189,7 @@ export default function Pos() {
                     })
                     .catch((err) => {
                         playSound(WarningSound);
-                        toast.error(err.response.data.message);
+                        toast.error(getErrorMessage(err));
                     });
             } else if (result.isDenied) {
                 return;
@@ -188,8 +204,12 @@ export default function Pos() {
             toast.error("Please select customer");
             return;
         }
+        const balanceLine =
+            parseFloat(change) > 0
+                ? `Change to return: ${change}`
+                : `Due: ${due}`;
         Swal.fire({
-            title: `Are you sure you want to complete this order? <br>Due: ${due}`,
+            title: `Are you sure you want to complete this order? <br>${balanceLine}`,
             showDenyButton: true,
             confirmButtonText: "Yes",
             denyButtonText: "No",
@@ -215,7 +235,8 @@ export default function Pos() {
                         window.location.href = `orders/pos-invoice/${res?.data?.order?.id}`;
                     })
                     .catch((err) => {
-                        toast.error(err.response.data.message);
+                        playSound(WarningSound);
+                        toast.error(getErrorMessage(err), { duration: 6000 });
                     });
             } else if (result.isDenied) {
                 return;
@@ -345,11 +366,10 @@ export default function Pos() {
                                                 onChange={(e) => {
                                                     const value =
                                                         e.target.value;
-                                                    if (
-                                                        parseFloat(value) < 0 ||
-                                                        parseFloat(value) >
-                                                            updateTotal
-                                                    ) {
+                                                    // Accept any non-negative
+                                                    // amount the customer tenders;
+                                                    // overpayment is shown as change.
+                                                    if (parseFloat(value) < 0) {
                                                         return;
                                                     }
                                                     setPaid(value);
@@ -363,6 +383,14 @@ export default function Pos() {
                                             {due}
                                         </div>
                                     </div>
+                                    {parseFloat(change) > 0 && (
+                                        <div className="row text-bold text-success mt-1">
+                                            <div className="col">Change:</div>
+                                            <div className="col text-right mr-2">
+                                                {change}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                             <div className="row">

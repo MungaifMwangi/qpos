@@ -123,8 +123,14 @@
               </tr>
               <tr>
                 <th>Paid:</th>
-                <td class="text-right">{{currency()->symbol.' '.number_format($order->paid,2,'.',',')}}</td>
+                <td class="text-right">{{currency()->symbol.' '.number_format($order->paid + $order->change_amount,2,'.',',')}}</td>
               </tr>
+              @if($order->change_amount > 0)
+              <tr>
+                <th>Change:</th>
+                <td class="text-right">{{currency()->symbol.' '.number_format($order->change_amount,2,'.',',')}}</td>
+              </tr>
+              @endif
               <tr>
                 <th>Due:</th>
                 <td class="text-right">{{currency()->symbol.' '.number_format($order->due,2,'.',',')}}</td>

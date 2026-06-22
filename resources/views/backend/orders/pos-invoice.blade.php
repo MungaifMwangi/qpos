@@ -75,8 +75,14 @@
         </tr>
         <tr>
           <td>Paid:</td>
-          <td class="text-right">{{number_format($order->paid, 2) }}</td>
+          <td class="text-right">{{number_format($order->paid + $order->change_amount, 2) }}</td>
         </tr>
+        @if($order->change_amount > 0)
+        <tr>
+          <td>Change:</td>
+          <td class="text-right">{{number_format($order->change_amount, 2) }}</td>
+        </tr>
+        @endif
         <tr>
           <td>Due:</td>
           <td class="text-right">{{number_format($order->due, 2) }}</td>
@@ -138,6 +144,17 @@
 
 @push('script')
 <script>
+  // Once the print dialog is closed (printed or cancelled), send the cashier
+  // back to the POS page to start the next sale instead of leaving them on
+  // the receipt. Guard so the redirect only fires once.
+  var posUrl = "{{ route('backend.admin.cart.index') }}";
+  var redirected = false;
+  var goToPos = function () {
+    if (redirected) return;
+    redirected = true;
+    window.location.href = posUrl;
+  };
+  window.addEventListener('afterprint', goToPos);
   window.print();
 </script>
 @endpush
