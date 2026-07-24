@@ -7,56 +7,55 @@ use App\Models\Order;
 use App\Models\OrderTransaction;
 use App\Models\PosCart;
 use App\Models\Product;
+use App\Services\PosService;
 use Illuminate\Http\Request;
 use Yajra\DataTables\DataTables;
+use Exception;
 
 class OrderController extends Controller
 {
+    protected PosService $posService;
+
+    public function __construct(PosService $posService)
+    {
+        $this->posService = $posService;
+    }
+
     /**
      * Display a listing of the resource.
      */
-
     public function index(Request $request)
     {
         if ($request->ajax()) {
-            $orders = Order::with('customer')->get();
+            $orders = Order::with('customer')->orderBy('id', 'desc')->get();
             return DataTables::of($orders)
                 ->addIndexColumn()
                 ->addColumn('saleId', fn($data) => "#" . $data->id)
                 ->addColumn('customer', fn($data) => $data->customer->name ?? '-')
-                ->addColumn('item', fn($data) => $data->total_item)
+                ->addColumn('item', fn($data) => $data->products()->count())
                 ->addColumn('sub_total', fn($data) => number_format($data->sub_total, 2, '.', ','))
                 ->addColumn('discount', fn($data) => number_format($data->discount, 2, '.', ','))
                 ->addColumn('total', fn($data) => number_format($data->total, 2, '.', ','))
                 ->addColumn('paid', fn($data) => number_format($data->paid, 2, '.', ','))
                 ->addColumn('due', fn($data) => number_format($data->due, 2, '.', ','))
-                ->addColumn('status', fn($data) => $data->status
-                    ? '<span class="badge bg-primary">Paid</span>'
-                    : '<span class="badge bg-danger">Due</span>')
+                ->addColumn('payment_method', fn($data) => '<span class="badge bg-info">' . strtoupper($data->payment_method ?? 'CASH') . '</span>')
+                ->addColumn('status', fn($data) => ($data->payment_status === 'paid' || $data->status)
+                    ? '<span class="badge bg-success">Paid</span>'
+                    : ($data->payment_status === 'pending' ? '<span class="badge bg-warning">Pending</span>' : '<span class="badge bg-danger">Failed/Due</span>'))
                 ->addColumn('action', function ($data) {
                     $buttons = '';
-
-                    $buttons .= '<a class="btn btn-success btn-sm" href="' . route('backend.admin.orders.invoice', $data->id) . '"><i class="fas fa-file-invoice"></i> Invoice</a>';
-
-                    $buttons .= '<a class="btn btn-secondary btn-sm" href="' . route('backend.admin.orders.pos-invoice', $data->id) . '"><i class="fas fa-file-invoice"></i> Pos Invoice</a>';
-                    if (!$data->status) {
-                        $buttons .= '<a class="btn btn-warning btn-sm" href="' . route('backend.admin.due.collection', $data->id) . '"><i class="fas fa-receipt"></i> Due Collection</a>';
+                    $buttons .= '<a class="btn btn-success btn-sm m-1" href="' . route('backend.admin.orders.invoice', $data->id) . '"><i class="fas fa-file-invoice"></i> Invoice</a>';
+                    $buttons .= '<a class="btn btn-secondary btn-sm m-1" href="' . route('backend.admin.orders.pos-invoice', $data->id) . '"><i class="fas fa-file-invoice"></i> POS Invoice</a>';
+                    if (!$data->status && $data->payment_status !== 'paid') {
+                        $buttons .= '<a class="btn btn-warning btn-sm m-1" href="' . route('backend.admin.due.collection', $data->id) . '"><i class="fas fa-receipt"></i> Collection</a>';
                     }
-                    $buttons .= '<a class="btn btn-primary btn-sm" href="' . route('backend.admin.orders.transactions', $data->id) . '"><i class="fas fa-exchange-alt"></i> Transactions</a>';
+                    $buttons .= '<a class="btn btn-primary btn-sm m-1" href="' . route('backend.admin.orders.transactions', $data->id) . '"><i class="fas fa-exchange-alt"></i> Ledger Tx</a>';
                     return $buttons;
                 })
-                ->rawColumns(['saleId', 'customer', 'item', 'sub_total', 'discount', 'total', 'paid', 'due', 'status', 'action'])
+                ->rawColumns(['saleId', 'customer', 'item', 'sub_total', 'discount', 'total', 'paid', 'due', 'payment_method', 'status', 'action'])
                 ->toJson();
         }
         return view('backend.orders.index');
-    }
-
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
     }
 
     /**
@@ -65,134 +64,85 @@ class OrderController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'customer_id' => [
-                'required',
-                'exists:customers,id',
-                'integer', // Ensure customer_id is an integer
-            ],
-            'order_discount' => [
-                'nullable',
-                'numeric',
-                'min:0',
-            ],
-            'paid' => [
-                'nullable',
-                'numeric',
-                'min:0',
-            ],
-        ], [
-            'customer_id.required' => 'Please select a customer.',
-            'customer_id.exists' => 'The selected customer does not exist.',
-            'order_discount.numeric' => 'The order discount must be a number.',
-            'paid.numeric' => 'The amount paid must be a number.',
+            'customer_id' => 'required|exists:customers,id|integer',
+            'payment_method' => 'nullable|in:cash,stk_push,debtor',
+            'tax_mode' => 'nullable|in:inclusive,exclusive',
+            'customer_phone' => 'nullable|string',
+            'order_discount' => 'nullable|numeric|min:0',
+            'paid' => 'nullable|numeric|min:0',
         ]);
+
         $carts = PosCart::with('product')->where('user_id', auth()->id())->get();
-        $order = Order::create([
-            'customer_id' => $request->customer_id,
-            'user_id' => $request->user()->id,
-        ]);
-        $totalAmountOrder = 0;
-        $orderDiscount = $request->order_discount;
+        if ($carts->isEmpty()) {
+            return response()->json(['message' => 'Your cart is empty.'], 400);
+        }
+
+        $cartItems = [];
+        $subTotal = 0;
+
         foreach ($carts as $cart) {
-            $mainTotal = $cart->product->price * $cart->quantity;
-            $totalAfterDiscount = $cart->product->discounted_price * $cart->quantity;
-            $discount = $mainTotal - $totalAfterDiscount;
-            $totalAmountOrder += $totalAfterDiscount;
-            $order->products()->create([
-                'quantity' => $cart->quantity,
-                'price' => $cart->product->price,
-                'purchase_price' => $cart->product->purchase_price,
-                'sub_total' => $mainTotal,
+            $itemPrice = $cart->product->discounted_price ?? $cart->product->price;
+            $cartItems[] = [
+                'id' => $cart->product->id,
+                'price' => $itemPrice,
+                'qty' => $cart->quantity,
+            ];
+            $subTotal += ($itemPrice * $cart->quantity);
+        }
+
+        $discount = floatval($request->order_discount ?? 0);
+        $total = max(0, $subTotal - $discount);
+        $paymentMethod = $request->payment_method ?? 'cash';
+
+        try {
+            $checkoutResult = $this->posService->processCheckout([
+                'customer_id' => $request->customer_id,
+                'sub_total' => $subTotal,
                 'discount' => $discount,
-                'total' => $totalAfterDiscount,
-                'product_id' => $cart->product->id,
-            ]);
-            $cart->product->quantity = $cart->product->quantity - $cart->quantity;
-            $cart->product->save();
+                'total' => $total,
+                'paid' => floatval($request->paid ?? $total),
+                'due' => max(0, $total - floatval($request->paid ?? $total)),
+                'payment_method' => $paymentMethod,
+                'tax_mode' => $request->tax_mode ?? 'inclusive',
+                'note' => $request->note ?? null,
+            ], $cartItems, $request->customer_phone);
+
+            // Clear cart
+            PosCart::where('user_id', auth()->id())->delete();
+
+            return response()->json([
+                'message' => $checkoutResult['message'] ?? 'Order completed successfully.',
+                'order' => $checkoutResult['order'],
+                'status' => $checkoutResult['status'],
+                'checkout_request_id' => $checkoutResult['checkout_request_id'] ?? null,
+            ], 200);
+
+        } catch (Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
         }
-        $total = $totalAmountOrder - $orderDiscount;
-        // The customer may tender more than the total; only the amount up to the
-        // total settles the order, the rest is change handed back at the counter.
-        $tendered = (float) $request->paid;
-        $paidApplied = min($tendered, (float) $total);
-        $change = max($tendered - (float) $total, 0);
-        $due = $total - $paidApplied;
-        $order->sub_total = $totalAmountOrder;
-        $order->discount = $orderDiscount;
-        $order->paid = round($paidApplied, 2);
-        $order->change_amount = round($change, 2);
-        $order->total = round((float)$total, 2);
-        $order->due = round((float)$due, 2);
-        $order->status = round((float)$due, 2) <= 0;
-        $order->save();
-        //create order transaction
-        if ($paidApplied > 0) {
-            $orderTransaction = $order->transactions()->create([
-                'amount' => round($paidApplied, 2),
-                'customer_id' => $order->customer_id,
-                'user_id' => auth()->id(),
-                'paid_by' => 'cash',
-            ]);
-        }
-
-        $carts = PosCart::where('user_id', auth()->id())->delete();
-        return response()->json(['message' => 'Order completed successfully', 'order' => $order], 200);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
-    {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
-    {
-        //
-    }
     public function invoice($id)
     {
         $order = Order::with(['customer', 'products.product'])->findOrFail($id);
         return view('backend.orders.print-invoice', compact('order'));
     }
+
     public function collection(Request $request, $id)
     {
-
         $order = Order::findOrFail($id);
         if ($request->isMethod('post')) {
             $data = $request->validate([
                 'amount' => 'required|numeric|min:1',
             ]);
 
-
             $due = $order->due - $data['amount'];
             $paid = $order->paid + $data['amount'];
             $order->due = round((float)$due, 2);
             $order->paid = round((float)$paid, 2);
             $order->status = round((float)$due, 2) <= 0;
+            $order->payment_status = $order->status ? 'paid' : 'pending';
             $order->save();
-            $collection_amount = $data['amount'];
-            //create order transaction
 
             $orderTransaction = $order->transactions()->create([
                 'amount' => $data['amount'],
@@ -200,12 +150,12 @@ class OrderController extends Controller
                 'user_id' => auth()->id(),
                 'paid_by' => 'cash',
             ]);
+
             return to_route('backend.admin.collectionInvoice', $orderTransaction->id);
         }
         return view('backend.orders.collection.create', compact('order'));
     }
 
-    //collection invoice by order_transaction id
     public function collectionInvoice($id)
     {
         $transaction = OrderTransaction::findOrFail($id);
@@ -213,7 +163,7 @@ class OrderController extends Controller
         $order = $transaction->order;
         return view('backend.orders.collection.invoice', compact('order', 'collection_amount', 'transaction'));
     }
-    //transactions by order id
+
     public function transactions($id)
     {
         $order = Order::with('transactions')->findOrFail($id);
@@ -223,7 +173,7 @@ class OrderController extends Controller
     public function posInvoice($id)
     {
         $order = Order::with(['customer', 'products.product'])->findOrFail($id);
-        $maxWidth = readConfig('receiptMaxwidth')??'300px';
+        $maxWidth = readConfig('receiptMaxwidth') ?? '300px';
         return view('backend.orders.pos-invoice', compact('order', 'maxWidth'));
     }
 }

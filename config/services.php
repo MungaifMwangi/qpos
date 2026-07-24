@@ -37,4 +37,13 @@ return [
         'redirect' => env('APP_URL') . '/auth/google/callback',
     ],
 
+    'daraja' => [
+        'consumer_key' => env('DARAJA_CONSUMER_KEY'),
+        'consumer_secret' => env('DARAJA_CONSUMER_SECRET'),
+        'shortcode' => env('DARAJA_SHORTCODE', '174379'),
+        'passkey' => env('DARAJA_PASSKEY'),
+        'env' => env('DARAJA_ENV', 'sandbox'),
+        'callback_url' => env('DARAJA_CALLBACK_URL'),
+    ],
+
 ];

@@ -92,7 +92,30 @@ Route::prefix('admin')->as('backend.admin.')->middleware(['admin'])->group(funct
     //start accounting
     Route::resource('expenses', ExpenseController::class);
     Route::get('profit-loss', [ProfitLossController::class, 'index'])->name('profit-loss.index');
+
+    // Double-Entry General Ledger
+    Route::get('accounting/ledger/chart', [\App\Http\Controllers\Backend\Accounting\GeneralLedgerController::class, 'chartOfAccounts'])->name('accounting.ledger.chart');
+    Route::get('accounting/ledger/entries', [\App\Http\Controllers\Backend\Accounting\GeneralLedgerController::class, 'journalEntries'])->name('accounting.ledger.entries');
+    Route::get('accounting/ledger/trial-balance', [\App\Http\Controllers\Backend\Accounting\GeneralLedgerController::class, 'trialBalance'])->name('accounting.ledger.trial-balance');
+
+    // Debtors AR
+    Route::get('accounting/debtors', [\App\Http\Controllers\Backend\Accounting\DebtorController::class, 'index'])->name('debtors.index');
+    Route::get('accounting/debtors/statement/{id}', [\App\Http\Controllers\Backend\Accounting\DebtorController::class, 'statement'])->name('debtors.statement');
+    Route::post('accounting/debtors/receipt', [\App\Http\Controllers\Backend\Accounting\DebtorController::class, 'storeReceipt'])->name('debtors.receipt');
+
+    // Creditors AP
+    Route::get('accounting/creditors', [\App\Http\Controllers\Backend\Accounting\CreditorController::class, 'index'])->name('creditors.index');
+    Route::post('accounting/creditors/payment', [\App\Http\Controllers\Backend\Accounting\CreditorController::class, 'storePayment'])->name('creditors.payment');
     //end accounting
+
+    //start LPO procurement
+    Route::get('lpo', [\App\Http\Controllers\Backend\Procurement\LpoController::class, 'index'])->name('lpo.index');
+    Route::get('lpo/create', [\App\Http\Controllers\Backend\Procurement\LpoController::class, 'create'])->name('lpo.create');
+    Route::post('lpo/store', [\App\Http\Controllers\Backend\Procurement\LpoController::class, 'store'])->name('lpo.store');
+    Route::get('lpo/show/{id}', [\App\Http\Controllers\Backend\Procurement\LpoController::class, 'show'])->name('lpo.show');
+    Route::post('lpo/{id}/grn', [\App\Http\Controllers\Backend\Procurement\LpoController::class, 'storeGrn'])->name('lpo.store-grn');
+    Route::post('lpo/{id}/invoice', [\App\Http\Controllers\Backend\Procurement\LpoController::class, 'storeInvoice'])->name('lpo.store-invoice');
+    //end LPO procurement
 
    // start pos
     Route::get('/get/products', [CartController::class, 'getProducts'])->name('getProducts');

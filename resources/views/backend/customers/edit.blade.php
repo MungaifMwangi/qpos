@@ -20,6 +20,18 @@
               value="{{ $customer->name }}" required>
           </div>
           <div class="mb-3 col-md-6">
+            <label class="form-label">Email</label>
+            <input type="email" class="form-control" name="email" value="{{ $customer->email }}">
+          </div>
+          <div class="mb-3 col-md-6">
+            <label class="form-label">Credit Limit (KES)</label>
+            <input type="number" step="0.01" min="0" class="form-control" name="credit_limit" value="{{ $customer->credit_limit }}">
+          </div>
+          <div class="mb-3 col-md-6">
+            <label class="form-label">Credit Terms (Days)</label>
+            <input type="number" min="0" class="form-control" name="credit_terms_days" value="{{ $customer->credit_terms_days }}">
+          </div>
+          <div class="mb-3 col-md-6">
             <label for="title" class="form-label">
               Phone
               <span class="text-danger">*</span>

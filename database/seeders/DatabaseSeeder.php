@@ -13,6 +13,7 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
+            ChartOfAccountsSeeder::class,
             StartUpSeeder::class,
            // Please comment out the following seeders when running in production for the client
             ProductSeeder::class,

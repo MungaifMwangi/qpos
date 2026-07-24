@@ -32,6 +32,9 @@ export default function Pos() {
     const [total, setTotal] = useState(0);
     const [updateTotal, setUpdateTotal] = useState(0);
     const [customerId, setCustomerId] = useState();
+    const [paymentMethod, setPaymentMethod] = useState("cash");
+    const [customerPhone, setCustomerPhone] = useState("");
+    const [taxMode, setTaxMode] = useState("inclusive");
     const [cartUpdated, setCartUpdated] = useState(false);
     const [productUpdated, setProductUpdated] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
@@ -204,6 +207,18 @@ export default function Pos() {
             toast.error("Please select customer");
             return;
         }
+        if (paymentMethod === "cash" && parseFloat(paid || 0) < parseFloat(updateTotal || 0)) {
+            toast.error("Cash tendered must cover the total.");
+            return;
+        }
+        if (paymentMethod === "debtor" && customerId === 1) {
+            toast.error("Select a registered customer for a credit sale.");
+            return;
+        }
+        if (paymentMethod === "stk_push" && !customerPhone) {
+            toast.error("Enter the M-Pesa phone number.");
+            return;
+        }
         const balanceLine =
             parseFloat(change) > 0
                 ? `Change to return: ${change}`
@@ -226,6 +241,9 @@ export default function Pos() {
                         customer_id: customerId,
                         order_discount: parseFloat(orderDiscount) || 0,
                         paid: parseFloat(paid) || 0,
+                        payment_method: paymentMethod,
+                        customer_phone: customerPhone,
+                        tax_mode: taxMode,
                     })
                     .then((res) => {
                         setCartUpdated(!cartUpdated);
@@ -298,6 +316,26 @@ export default function Pos() {
                                         </div>
                                     </div>
                                     <div className="row text-bold mb-1">
+                                        <div className="col">Payment:</div>
+                                        <div className="col text-right mr-2">
+                                            <select className="form-control form-control-sm" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} disabled={total <= 0}>
+                                                <option value="cash">Cash</option>
+                                                <option value="stk_push">M-Pesa STK Push</option>
+                                                <option value="debtor">Customer Credit</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div className="row text-bold mb-1">
+                                        <div className="col">VAT:</div>
+                                        <div className="col text-right mr-2">
+                                            <select className="form-control form-control-sm" value={taxMode} onChange={(e) => setTaxMode(e.target.value)} disabled={total <= 0}>
+                                                <option value="inclusive">Inclusive (16%)</option>
+                                                <option value="exclusive">Exclusive (16%)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    {paymentMethod === "stk_push" && <div className="row text-bold mb-1"><div className="col">M-Pesa Phone:</div><div className="col text-right mr-2"><input type="tel" className="form-control form-control-sm" placeholder="0712 345 678" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} /></div></div>}
+                                    <div className="row text-bold mb-1">
                                         <div className="col">Discount:</div>
                                         <div className="col text-right mr-2">
                                             <input
@@ -322,7 +360,7 @@ export default function Pos() {
                                             />
                                         </div>
                                     </div>
-                                    <div className="row text-bold mb-1">
+                                    {paymentMethod === "cash" && <div className="row text-bold mb-1">
                                         <div className="col">
                                             Apply Fractional Discount:
                                         </div>
@@ -346,14 +384,14 @@ export default function Pos() {
                                                 }}
                                             />
                                         </div>
-                                    </div>
+                                    </div>}
                                     <div className="row text-bold mb-1">
                                         <div className="col">Total:</div>
                                         <div className="col text-right mr-2">
                                             {updateTotal}
                                         </div>
                                     </div>
-                                    <div className="row text-bold mb-1">
+                                    {paymentMethod === "cash" && <div className="row text-bold mb-1">
                                         <div className="col">Paid:</div>
                                         <div className="col text-right mr-2">
                                             <input
@@ -376,11 +414,11 @@ export default function Pos() {
                                                 }}
                                             />
                                         </div>
-                                    </div>
+                                    </div>}
                                     <div className="row text-bold">
                                         <div className="col">Due:</div>
                                         <div className="col text-right mr-2">
-                                            {due}
+                                            {paymentMethod === "debtor" ? updateTotal : (paymentMethod === "stk_push" ? updateTotal : due)}
                                         </div>
                                     </div>
                                     {parseFloat(change) > 0 && (

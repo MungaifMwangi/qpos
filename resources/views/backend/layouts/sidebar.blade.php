@@ -222,34 +222,75 @@ $route = request()->route()->getName();
                 </ul>
             </li>
             @endif
-            @if (auth()->user()->hasAnyPermission([
-            'expense_view',
-            'profit_loss_view',
-            ]))
-            <li class="nav-item {{ request()->routeIs(['backend.admin.expenses.*', 'backend.admin.profit-loss.*']) ? 'menu-open' : '' }}">
-                <a href="#" class="nav-link {{ request()->routeIs(['backend.admin.expenses.*', 'backend.admin.profit-loss.*']) ? 'active' : '' }}">
-                    <i class="fas fa-calculator nav-icon"></i>
+            <li class="nav-item {{ request()->routeIs(['backend.admin.lpo.*']) ? 'menu-open' : '' }}">
+                <a href="#" class="nav-link {{ request()->routeIs(['backend.admin.lpo.*']) ? 'active' : '' }}">
+                    <i class="fas fa-file-contract nav-icon"></i>
                     <p>
-                        Accounting
+                        LPO Procurement
                         <i class="fas fa-angle-left right"></i>
                     </p>
                 </a>
                 <ul class="nav nav-treeview">
+                    <li class="nav-item">
+                        <a href="{{ route('backend.admin.lpo.index') }}" class="nav-link {{ request()->routeIs(['backend.admin.lpo.index']) ? 'active' : '' }}">
+                            <i class="fas fa-circle nav-icon"></i>
+                            <p>LPO List</p>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ route('backend.admin.lpo.create') }}" class="nav-link {{ request()->routeIs(['backend.admin.lpo.create']) ? 'active' : '' }}">
+                            <i class="fas fa-circle nav-icon"></i>
+                            <p>New LPO Requisition</p>
+                        </a>
+                    </li>
+                </ul>
+            </li>
+
+            <li class="nav-item {{ request()->routeIs(['backend.admin.expenses.*', 'backend.admin.profit-loss.*', 'backend.admin.accounting.*', 'backend.admin.debtors.*', 'backend.admin.creditors.*']) ? 'menu-open' : '' }}">
+                <a href="#" class="nav-link {{ request()->routeIs(['backend.admin.expenses.*', 'backend.admin.profit-loss.*', 'backend.admin.accounting.*', 'backend.admin.debtors.*', 'backend.admin.creditors.*']) ? 'active' : '' }}">
+                    <i class="fas fa-calculator nav-icon"></i>
+                    <p>
+                        Accounting & Ledger
+                        <i class="fas fa-angle-left right"></i>
+                    </p>
+                </a>
+                <ul class="nav nav-treeview">
+                    <li class="nav-item">
+                        <a href="{{ route('backend.admin.accounting.ledger.chart') }}" class="nav-link {{ request()->routeIs(['backend.admin.accounting.ledger.chart']) ? 'active' : '' }}">
+                            <i class="fas fa-circle nav-icon"></i>
+                            <p>Chart of Accounts</p>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ route('backend.admin.accounting.ledger.entries') }}" class="nav-link {{ request()->routeIs(['backend.admin.accounting.ledger.entries']) ? 'active' : '' }}">
+                            <i class="fas fa-circle nav-icon"></i>
+                            <p>General Ledger</p>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ route('backend.admin.accounting.ledger.trial-balance') }}" class="nav-link {{ request()->routeIs(['backend.admin.accounting.ledger.trial-balance']) ? 'active' : '' }}">
+                            <i class="fas fa-circle nav-icon"></i>
+                            <p>Trial Balance</p>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ route('backend.admin.debtors.index') }}" class="nav-link {{ request()->routeIs(['backend.admin.debtors.*']) ? 'active' : '' }}">
+                            <i class="fas fa-circle nav-icon"></i>
+                            <p>Debtors (AR)</p>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ route('backend.admin.creditors.index') }}" class="nav-link {{ request()->routeIs(['backend.admin.creditors.*']) ? 'active' : '' }}">
+                            <i class="fas fa-circle nav-icon"></i>
+                            <p>Creditors (AP)</p>
+                        </a>
+                    </li>
                     @can('expense_view')
                     <li class="nav-item">
                         <a href="{{ route('backend.admin.expenses.index') }}"
                             class="nav-link {{ request()->routeIs(['backend.admin.expenses.index', 'backend.admin.expenses.edit']) ? 'active' : '' }}">
                             <i class="fas fa-circle nav-icon"></i>
                             <p>Expenses List</p>
-                        </a>
-                    </li>
-                    @endcan
-                    @can('expense_create')
-                    <li class="nav-item">
-                        <a href="{{ route('backend.admin.expenses.create') }}"
-                            class="nav-link {{ request()->routeIs(['backend.admin.expenses.create']) ? 'active' : '' }}">
-                            <i class="fas fa-circle nav-icon"></i>
-                            <p>Add Expense</p>
                         </a>
                     </li>
                     @endcan
@@ -264,7 +305,6 @@ $route = request()->route()->getName();
                     @endcan
                 </ul>
             </li>
-            @endif
             @if (auth()->user()->hasAnyPermission([
             'reports_summary',
             'reports_sales',

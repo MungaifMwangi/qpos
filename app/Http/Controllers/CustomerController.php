@@ -101,9 +101,12 @@ class CustomerController extends Controller
             'name' => 'required|string|max:255',
             'phone' => 'required|string|max:20|unique:customers,phone',
             'address' => 'nullable|string|max:255',
+            'email' => 'nullable|email|max:255',
+            'credit_limit' => 'nullable|numeric|min:0',
+            'credit_terms_days' => 'nullable|integer|min:0',
         ]);
 
-        $customer = Customer::create($request->only(['name', 'phone', 'address']));
+        $customer = Customer::create($request->only(['name', 'phone', 'address', 'email', 'credit_limit', 'credit_terms_days']));
 
         session()->flash('success', 'Customer created successfully.');
         return to_route('backend.admin.customers.index');
@@ -141,9 +144,12 @@ class CustomerController extends Controller
             'name' => 'required|string|max:255',
             'phone' => 'required|string|max:20|unique:customers,phone,' . $customer->id, // Corrected syntax
             'address' => 'nullable|string|max:255',
+            'email' => 'nullable|email|max:255',
+            'credit_limit' => 'nullable|numeric|min:0',
+            'credit_terms_days' => 'nullable|integer|min:0',
         ]);
 
-        $customer->update($request->only(['name', 'phone', 'address']));
+        $customer->update($request->only(['name', 'phone', 'address', 'email', 'credit_limit', 'credit_terms_days']));
 
         session()->flash('success', 'Customer updated successfully.');
         return to_route('backend.admin.customers.index');
