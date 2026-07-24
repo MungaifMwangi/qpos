@@ -21,6 +21,8 @@ use App\Http\Controllers\Backend\RolePermission\RoleController;
 use App\Http\Controllers\Backend\Product\UnitController;
 use App\Http\Controllers\Backend\UserManagementController;
 use App\Http\Controllers\Backend\WebsiteSettingController;
+use App\Http\Controllers\Backend\Accounting\ExpenseController;
+use App\Http\Controllers\Backend\Accounting\ProfitLossController;
 use App\Models\Supplier;
 
 /*
@@ -86,6 +88,12 @@ Route::prefix('admin')->as('backend.admin.')->middleware(['admin'])->group(funct
     Route::get('/sale/report', [ReportController::class, 'saleReport'])->name('sale.report');
     Route::get('/inventory/report', [ReportController::class, 'inventoryReport'])->name('inventory.report');
     //end report
+
+    //start accounting
+    Route::resource('expenses', ExpenseController::class);
+    Route::get('profit-loss', [ProfitLossController::class, 'index'])->name('profit-loss.index');
+    //end accounting
+
    // start pos
     Route::get('/get/products', [CartController::class, 'getProducts'])->name('getProducts');
     Route::get('/cart', [CartController::class, 'index'])->name('cart.index');

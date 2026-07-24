@@ -223,6 +223,49 @@ $route = request()->route()->getName();
             </li>
             @endif
             @if (auth()->user()->hasAnyPermission([
+            'expense_view',
+            'profit_loss_view',
+            ]))
+            <li class="nav-item {{ request()->routeIs(['backend.admin.expenses.*', 'backend.admin.profit-loss.*']) ? 'menu-open' : '' }}">
+                <a href="#" class="nav-link {{ request()->routeIs(['backend.admin.expenses.*', 'backend.admin.profit-loss.*']) ? 'active' : '' }}">
+                    <i class="fas fa-calculator nav-icon"></i>
+                    <p>
+                        Accounting
+                        <i class="fas fa-angle-left right"></i>
+                    </p>
+                </a>
+                <ul class="nav nav-treeview">
+                    @can('expense_view')
+                    <li class="nav-item">
+                        <a href="{{ route('backend.admin.expenses.index') }}"
+                            class="nav-link {{ request()->routeIs(['backend.admin.expenses.index', 'backend.admin.expenses.edit']) ? 'active' : '' }}">
+                            <i class="fas fa-circle nav-icon"></i>
+                            <p>Expenses List</p>
+                        </a>
+                    </li>
+                    @endcan
+                    @can('expense_create')
+                    <li class="nav-item">
+                        <a href="{{ route('backend.admin.expenses.create') }}"
+                            class="nav-link {{ request()->routeIs(['backend.admin.expenses.create']) ? 'active' : '' }}">
+                            <i class="fas fa-circle nav-icon"></i>
+                            <p>Add Expense</p>
+                        </a>
+                    </li>
+                    @endcan
+                    @can('profit_loss_view')
+                    <li class="nav-item">
+                        <a href="{{ route('backend.admin.profit-loss.index') }}"
+                            class="nav-link {{ request()->routeIs(['backend.admin.profit-loss.index']) ? 'active' : '' }}">
+                            <i class="fas fa-circle nav-icon"></i>
+                            <p>Profit & Loss</p>
+                        </a>
+                    </li>
+                    @endcan
+                </ul>
+            </li>
+            @endif
+            @if (auth()->user()->hasAnyPermission([
             'reports_summary',
             'reports_sales',
             'reports_inventory',
