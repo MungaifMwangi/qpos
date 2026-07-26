@@ -76,6 +76,21 @@ class DashboardController extends Controller
             ->take(5)
             ->get();
 
+        // Sales by category (last 7 days) for donut chart
+        $categoryData = OrderProduct::whereHas('order', function ($q) {
+                $q->where('payment_status', '!=', 'voided')
+                  ->where('created_at', '>=', Carbon::now()->subDays(6)->startOfDay());
+            })
+            ->join('products', 'order_products.product_id', '=', 'products.id')
+            ->join('categories', 'products.category_id', '=', 'categories.id')
+            ->selectRaw('categories.name as category, SUM(order_products.total) as total')
+            ->groupBy('categories.name')
+            ->orderByDesc('total')
+            ->get();
+
+        $categoryLabels = $categoryData->pluck('category')->toArray();
+        $categoryTotals = $categoryData->pluck('total')->map(fn($v) => round($v, 2))->toArray();
+
         $topProducts = OrderProduct::select(
                 'product_id',
                 DB::raw('SUM(order_products.quantity) as total_qty'),
@@ -109,6 +124,8 @@ class DashboardController extends Controller
             'chartData' => $chartData,
             'recentSales' => $recentSales,
             'topProducts' => $topProducts,
+            'categoryLabels' => $categoryLabels,
+            'categoryTotals' => $categoryTotals,
         ];
 
         return view('backend.index', $data);

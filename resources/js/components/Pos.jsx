@@ -111,13 +111,16 @@ export default function Pos() {
         if (orderDiscount == "") {
             disc = 0;
         }
-        const updatedTotalAmount = parseFloat(total) - parseFloat(disc);
+        const netAmount = parseFloat(total) - parseFloat(disc);
+        const vatRate = 0.16;
+        // In exclusive mode, customer pays gross (net + VAT); in inclusive, net is already the gross.
+        const grossAmount = taxMode === "exclusive" ? parseFloat((netAmount * (1 + vatRate)).toFixed(2)) : netAmount;
         // Positive balance => still owed (due); negative => overpaid (change to return).
-        const balance = updatedTotalAmount - parseFloat(paid1);
-        setUpdateTotal(updatedTotalAmount?.toFixed(2));
+        const balance = grossAmount - parseFloat(paid1);
+        setUpdateTotal(grossAmount?.toFixed(2));
         setDue((balance > 0 ? balance : 0).toFixed(2));
         setChange((balance < 0 ? -balance : 0).toFixed(2));
-    }, [orderDiscount, paid, total]);
+    }, [orderDiscount, paid, total, taxMode]);
     useEffect(() => {
         if (searchQuery) {
             setProducts([]);

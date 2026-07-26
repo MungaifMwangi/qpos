@@ -65,6 +65,7 @@ class RolePermissionSeeder extends Seeder
             'sale_view',
             'sale_update',
             'sale_delete',
+            'sale_void',
             //purchase
             'purchase_create',
             'purchase_view',

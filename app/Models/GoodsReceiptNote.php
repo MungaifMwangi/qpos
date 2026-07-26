@@ -12,6 +12,7 @@ class GoodsReceiptNote extends Model
     protected $fillable = [
         'grn_number',
         'lpo_id',
+        'purchase_id',
         'supplier_id',
         'received_date',
         'received_by',
@@ -21,6 +22,11 @@ class GoodsReceiptNote extends Model
     public function lpo()
     {
         return $this->belongsTo(Lpo::class, 'lpo_id');
+    }
+
+    public function purchase()
+    {
+        return $this->belongsTo(\App\Models\Purchase::class, 'purchase_id');
     }
 
     public function supplier()

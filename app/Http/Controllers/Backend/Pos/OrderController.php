@@ -32,14 +32,29 @@ class OrderController extends Controller
     public function index(Request $request)
     {
         if ($request->ajax()) {
-            $orders = Order::with('customer')->orderBy('id', 'desc')->get();
-            $isAdmin = auth()->user()->hasRole('Admin');
+            $query = Order::with('customer');
+
+            if ($request->filled('status')) {
+                $query->where('payment_status', $request->status);
+            }
+
+            if ($request->filled('from')) {
+                $query->whereDate('created_at', '>=', $request->from);
+            }
+
+            if ($request->filled('to')) {
+                $query->whereDate('created_at', '<=', $request->to);
+            }
+
+            $orders = $query->orderBy('id', 'desc');
+            $canVoid = auth()->user()->can('sale_void');
 
             return DataTables::of($orders)
                 ->addIndexColumn()
                 ->addColumn('saleId', fn($data) => "#" . $data->id)
                 ->addColumn('customer', fn($data) => $data->customer->name ?? '-')
                 ->addColumn('item', fn($data) => $data->products()->count())
+                ->addColumn('date', fn($data) => \Carbon\Carbon::parse($data->created_at)->format('d M, Y'))
                 ->addColumn('sub_total', fn($data) => number_format($data->sub_total, 2, '.', ','))
                 ->addColumn('discount', fn($data) => number_format($data->discount, 2, '.', ','))
                 ->addColumn('total', fn($data) => number_format($data->total, 2, '.', ','))
@@ -58,7 +73,7 @@ class OrderController extends Controller
                     }
                     return '<span class="badge bg-danger">Failed/Due</span>';
                 })
-                ->addColumn('action', function ($data) use ($isAdmin) {
+                ->addColumn('action', function ($data) use ($canVoid) {
                     // Voided orders — no further actions
                     if ($data->payment_status === 'voided') {
                         return '<span class="badge bg-dark p-2"><i class="fas fa-ban mr-1"></i>Voided</span>';
@@ -83,8 +98,8 @@ class OrderController extends Controller
                             . '" title="Record collection"><i class="fas fa-hand-holding-usd"></i> Collect</a>';
                     }
 
-                    // Void button — admin only, not for already-voided
-                    if ($isAdmin) {
+                    // Void button — requires sale_void permission, not for already-voided
+                    if ($canVoid) {
                         $buttons .= '<button class="btn btn-danger btn-sm m-1 void-sale-btn"'
                             . ' data-id="' . $data->id . '"'
                             . ' data-sale="#' . $data->id . '"'
@@ -94,7 +109,7 @@ class OrderController extends Controller
 
                     return $buttons;
                 })
-                ->rawColumns(['saleId', 'customer', 'item', 'sub_total', 'discount', 'total',
+                ->rawColumns(['saleId', 'customer', 'item', 'date', 'sub_total', 'discount', 'total',
                               'paid', 'due', 'payment_method', 'status', 'action'])
                 ->toJson();
         }
@@ -223,17 +238,17 @@ class OrderController extends Controller
     }
 
     /**
-     * Void a sale — Admin only.
+     * Void a sale — requires sale_void permission.
      * Accepts JSON body: { "reason": "..." }
      * Reverses GL entries, restores stock, nullifies debtor records,
      * deletes collection receipts, marks order as voided.
      */
     public function void(Request $request, int $id)
     {
-        // ── Admin-only gate ─────────────────────────────────────────
-        if (!auth()->user()->hasRole('Admin')) {
+        // ── Permission gate ─────────────────────────────────────────
+        if (!auth()->user()->can('sale_void')) {
             return response()->json([
-                'message' => 'Access denied. Only administrators can void a sale.',
+                'message' => 'Access denied. You do not have permission to void a sale.',
             ], 403);
         }
 

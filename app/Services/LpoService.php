@@ -116,6 +116,8 @@ class LpoService
                     'lpo_item_id'           => $lpoItem->id,
                     'product_id'            => $lpoItem->product_id,
                     'qty_received'          => $qty,
+                    'unit_cost'             => $lpoItem->unit_cost,
+                    'line_total'            => round($qty * $lpoItem->unit_cost, 2),
                 ]);
 
                 // Increment inventory — correct column is `quantity`

@@ -7,68 +7,126 @@ use App\Models\Order;
 use App\Models\OrderProduct;
 use App\Models\Expense;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use Carbon\Carbon;
 
 class ProfitLossController extends Controller
 {
+    protected static $expenseCategories = [
+        'rent' => 'Rent',
+        'utilities' => 'Utilities (Electricity, Water, Internet)',
+        'salaries' => 'Salaries & Wages',
+        'marketing' => 'Marketing & Advertising',
+        'supplies' => 'Office Supplies',
+        'maintenance' => 'Maintenance & Repairs',
+        'other' => 'Other / Miscellaneous'
+    ];
+
     /**
-     * Display the Profit & Loss statement.
+     * Show the Profit & Loss page (React mount point).
      */
-    public function index(Request $request)
+    public function index()
+    {
+        abort_if(!auth()->user()->can('profit_loss_view'), 403);
+        return view('backend.reports.profit-loss');
+    }
+
+    /**
+     * API: Return P&L data as JSON for a given period.
+     * GET /api/reports/profit-loss?period=this_month
+     * GET /api/reports/profit-loss?from=2026-01-01&to=2026-01-31
+     */
+    public function apiData(Request $request): JsonResponse
     {
         abort_if(!auth()->user()->can('profit_loss_view'), 403);
 
-        // Get date inputs or set defaults (last 30 days)
-        $start_date_input = $request->input('start_date', Carbon::today()->subDays(29)->format('Y-m-d'));
-        $end_date_input = $request->input('end_date', Carbon::today()->format('Y-m-d'));
+        [$start, $end] = $this->resolvePeriod($request);
 
-        // Parse dates
-        $start_date = Carbon::parse($start_date_input)->startOfDay();
-        $end_date = Carbon::parse($end_date_input)->endOfDay();
+        // --- Revenue by category ---
+        $orderIds = Order::whereBetween('created_at', [$start, $end])->pluck('id');
 
-        // 1. Revenue Calculations
-        $orders = Order::whereBetween('created_at', [$start_date, $end_date])->get();
-        $gross_sales = $orders->sum('sub_total');
-        $sales_discount = $orders->sum('discount');
-        $net_sales = $orders->sum('total');
+        $revenueByCategory = OrderProduct::whereIn('order_id', $orderIds)
+            ->join('products', 'order_products.product_id', '=', 'products.id')
+            ->join('categories', 'products.category_id', '=', 'categories.id')
+            ->selectRaw('categories.name as category, SUM(order_products.total) as revenue')
+            ->groupBy('categories.name')
+            ->orderByDesc('revenue')
+            ->pluck('revenue', 'category')
+            ->toArray();
 
-        // 2. Cost of Goods Sold (COGS)
-        $cogs = OrderProduct::whereHas('order', function ($query) use ($start_date, $end_date) {
-            $query->whereBetween('created_at', [$start_date, $end_date]);
-        })->selectRaw('SUM(purchase_price * quantity) as total_cogs')->value('total_cogs') ?: 0;
+        $totalRevenue = array_sum($revenueByCategory);
 
-        // 3. Gross Profit
-        $gross_profit = $net_sales - $cogs;
+        // --- COGS (cost side from order_products) ---
+        $cogs = OrderProduct::whereIn('order_id', $orderIds)
+            ->selectRaw('SUM(purchase_price * quantity) as total_cogs')
+            ->value('total_cogs') ?: 0;
 
-        // 4. Other Business Expenses (grouped by category)
-        $expenseCategories = ExpenseController::$categories;
-        $categoryTotals = Expense::whereBetween('expense_date', [$start_date, $end_date])
+        // --- Operating Expenses by category ---
+        $opexRaw = Expense::whereBetween('expense_date', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
             ->selectRaw('category, SUM(amount) as total')
             ->groupBy('category')
             ->pluck('total', 'category')
             ->toArray();
 
-        $total_expenses = Expense::whereBetween('expense_date', [$start_date, $end_date])->sum('amount');
+        // Map keys to human-readable names
+        $opexReadable = [];
+        foreach ($opexRaw as $rawKey => $total) {
+            $label = self::$expenseCategories[$rawKey] ?? ucfirst($rawKey);
+            $opexReadable[$label] = $total;
+        }
 
-        // 5. Net Profit
-        $net_profit = $gross_profit - $total_expenses;
+        $totalOpex = array_sum($opexReadable);
 
-        $data = [
-            'start_date' => $start_date->format('M d, Y'),
-            'end_date' => $end_date->format('M d, Y'),
-            'start_date_raw' => $start_date_input,
-            'end_date_raw' => $end_date_input,
-            'gross_sales' => $gross_sales,
-            'sales_discount' => $sales_discount,
-            'net_sales' => $net_sales,
-            'cogs' => $cogs,
-            'gross_profit' => $gross_profit,
-            'expenseCategories' => $expenseCategories,
-            'categoryTotals' => $categoryTotals,
-            'total_expenses' => $total_expenses,
-            'net_profit' => $net_profit,
-        ];
+        $currencySymbol = currency()->symbol ?? 'KES';
 
-        return view('backend.accounting.profit-loss.index', $data);
+        return response()->json([
+            'period' => [
+                'from' => $start->format('Y-m-d'),
+                'to'   => $end->format('Y-m-d'),
+                'label' => $start->format('M d, Y') . ' — ' . $end->format('M d, Y'),
+            ],
+            'currency' => $currencySymbol,
+            'revenue' => [
+                'total' => round($totalRevenue, 2),
+                'byCategory' => array_map('round', $revenueByCategory, array_fill(0, count($revenueByCategory), 2)),
+            ],
+            'cogs' => round($cogs, 2),
+            'opex' => [
+                'total' => round($totalOpex, 2),
+                'byCategory' => array_map('round', $opexReadable, array_fill(0, count($opexReadable), 2)),
+            ],
+        ]);
+    }
+
+    /**
+     * Resolve start/end Carbon instances from the request.
+     */
+    protected function resolvePeriod(Request $request): array
+    {
+        $period = $request->input('period', 'this_month');
+
+        if ($period === 'custom' && $request->filled('from') && $request->filled('to')) {
+            return [
+                Carbon::parse($request->input('from'))->startOfDay(),
+                Carbon::parse($request->input('to'))->endOfDay(),
+            ];
+        }
+
+        $now = Carbon::now();
+
+        return match ($period) {
+            'today'        => [$now->copy()->startOfDay(), $now->copy()->endOfDay()],
+            'yesterday'    => [$now->copy()->subDay()->startOfDay(), $now->copy()->subDay()->endOfDay()],
+            'this_week'    => [$now->copy()->startOfWeek(), $now->copy()->endOfWeek()],
+            'last_week'    => [$now->copy()->subWeek()->startOfWeek(), $now->copy()->subWeek()->endOfWeek()],
+            'this_month'   => [$now->copy()->startOfMonth(), $now->copy()->endOfMonth()],
+            'last_month'   => [$now->copy()->subMonth()->startOfMonth(), $now->copy()->subMonth()->endOfMonth()],
+            'this_quarter' => [$now->copy()->startOfQuarter(), $now->copy()->endOfQuarter()],
+            'last_quarter' => [$now->copy()->subQuarter()->startOfQuarter(), $now->copy()->subQuarter()->endOfQuarter()],
+            'ytd'          => [$now->copy()->startOfYear(), $now->copy()->endOfYear()],
+            'this_year'    => [$now->copy()->startOfYear(), $now->copy()->endOfYear()],
+            'last_year'    => [$now->copy()->subYear()->startOfYear(), $now->copy()->subYear()->endOfYear()],
+            default        => [$now->copy()->startOfMonth(), $now->copy()->endOfMonth()],
+        };
     }
 }

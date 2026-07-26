@@ -14,6 +14,8 @@ class GrnItem extends Model
         'lpo_item_id',
         'product_id',
         'qty_received',
+        'unit_cost',
+        'line_total',
     ];
 
     public function goodsReceiptNote()

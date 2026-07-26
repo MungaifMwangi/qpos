@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Backend\Product;
 
 use App\Http\Controllers\Controller;
+use App\Models\GoodsReceiptNote;
+use App\Models\GrnItem;
 use App\Models\Product;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
@@ -90,7 +92,6 @@ class PurchaseController extends Controller
 
             if ($validatedData['purchase_id'] == null) {
                 DB::beginTransaction();
-                // Step 2: Create a new purchase record
                 try {
                     $purchase = Purchase::create([
                         'supplier_id' => $validatedData['supplierId'],
@@ -104,7 +105,21 @@ class PurchaseController extends Controller
                         'status' => 1,
                     ]);
 
-                    // Step 3: Create purchase items
+                    $grnNumber = 'GRN-' . date('Y') . '-' . str_pad(
+                        (GoodsReceiptNote::whereYear('created_at', date('Y'))->count() + 1),
+                        4, '0', STR_PAD_LEFT
+                    );
+
+                    $grn = GoodsReceiptNote::create([
+                        'grn_number'   => $grnNumber,
+                        'lpo_id'       => null,
+                        'purchase_id'  => $purchase->id,
+                        'supplier_id'  => $validatedData['supplierId'],
+                        'received_date'=> $validatedData['date'] ?? Carbon::now()->toDateString(),
+                        'received_by'  => auth()->id(),
+                        'notes'        => 'Auto-generated from direct purchase #' . $purchase->id,
+                    ]);
+
                     foreach ($validatedData['products'] as $product) {
                         $existingProduct = Product::findOrFail($product['id']);
                         PurchaseItem::create([
@@ -114,8 +129,16 @@ class PurchaseController extends Controller
                             'price' => $product['price'],
                             'quantity' => $product['qty'],
                         ]);
-
                         $existingProduct->increment('quantity', $product['qty']);
+
+                        GrnItem::create([
+                            'goods_receipt_note_id' => $grn->id,
+                            'lpo_item_id'           => null,
+                            'product_id'            => $product['id'],
+                            'qty_received'          => $product['qty'],
+                            'unit_cost'             => $product['purchase_price'],
+                            'line_total'            => round($product['qty'] * $product['purchase_price'], 2),
+                        ]);
                     }
                     DB::commit();
                 } catch (\Exception $e) {
@@ -137,16 +160,34 @@ class PurchaseController extends Controller
                         'date' => $validatedData['date'] ?? Carbon::now()->toDateString(),
                         'status' => 1,
                     ]);
-                    // Step 3: Create purchase items
+
+                    // Delete existing GRN items and recreate
+                    $existingGrn = GoodsReceiptNote::where('purchase_id', $purchase->id)->first();
+                    if ($existingGrn) {
+                        GrnItem::where('goods_receipt_note_id', $existingGrn->id)->delete();
+                        $grn = $existingGrn;
+                    } else {
+                        $grnNumber = 'GRN-' . date('Y') . '-' . str_pad(
+                            (GoodsReceiptNote::whereYear('created_at', date('Y'))->count() + 1),
+                            4, '0', STR_PAD_LEFT
+                        );
+                        $grn = GoodsReceiptNote::create([
+                            'grn_number'   => $grnNumber,
+                            'lpo_id'       => null,
+                            'purchase_id'  => $purchase->id,
+                            'supplier_id'  => $validatedData['supplierId'],
+                            'received_date'=> $validatedData['date'] ?? Carbon::now()->toDateString(),
+                            'received_by'  => auth()->id(),
+                            'notes'        => 'Auto-generated from direct purchase #' . $purchase->id,
+                        ]);
+                    }
+
                     foreach ($validatedData['products'] as $product) {
-                        $existingProduct = Product::findOrFail($product['id']); 
-                        // Find the existing purchase item, if any, and get its quantity or set to 0
-                        $oldPurchaseItem = PurchaseItem::find($product['item_id']??0);
+                        $existingProduct = Product::findOrFail($product['id']);
+                        $oldPurchaseItem = PurchaseItem::find($product['item_id'] ?? 0);
                         $oldQuantity = $oldPurchaseItem ? $oldPurchaseItem->quantity : 0;
                         PurchaseItem::updateOrCreate(
-                            [
-                                'id' => $product['item_id'] ?? null
-                            ],
+                            ['id' => $product['item_id'] ?? null],
                             [
                                 'purchase_id' => $purchase->id,
                                 'product_id' => $product['id'],
@@ -155,10 +196,17 @@ class PurchaseController extends Controller
                                 'quantity' => $product['qty'],
                             ]
                         );
-
-                        // Adjust product stock: first add back the old quantity, then subtract the new
                         $existingProduct->decrement('quantity', $oldQuantity);
                         $existingProduct->increment('quantity', $product['qty']);
+
+                        GrnItem::create([
+                            'goods_receipt_note_id' => $grn->id,
+                            'lpo_item_id'           => null,
+                            'product_id'            => $product['id'],
+                            'qty_received'          => $product['qty'],
+                            'unit_cost'             => $product['purchase_price'],
+                            'line_total'            => round($product['qty'] * $product['purchase_price'], 2),
+                        ]);
                     }
                     DB::commit();
                 } catch (\Exception $e) {

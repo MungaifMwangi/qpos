@@ -39,6 +39,7 @@
     .dash-panel-header h5 i { color: #8e5fd9; margin-right: 6px; }
     .dash-panel-body { padding: 20px; }
     .dash-bot-row { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+    .dash-charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 
     .dash-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .dash-table thead th { background: #f8f9fc; color: #6c757d; font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: .5px; padding: 10px 12px; border-bottom: 2px solid #eef0f4; }
@@ -74,6 +75,7 @@
     @media (max-width: 991px) {
         .dash-kpi-row { grid-template-columns: repeat(2, 1fr); }
         .dash-bot-row { grid-template-columns: 1fr; }
+        .dash-charts-row { grid-template-columns: 1fr; }
     }
     @media (max-width: 575px) {
         .dash-kpi-row { grid-template-columns: 1fr; }
@@ -131,11 +133,27 @@
         </div>
 
         <div class="dash-panel" style="margin-bottom:24px;">
-            <div class="dash-panel-header">
-                <h5><i class="fas fa-chart-line"></i> Sales Overview (Last 7 Days)</h5>
-            </div>
-            <div class="dash-panel-body">
-                <canvas id="salesOverviewChart" height="260"></canvas>
+            <div class="dash-charts-row">
+                <div>
+                    <div class="dash-panel-header">
+                        <h5><i class="fas fa-chart-line"></i> Sales Overview (Last 7 Days)</h5>
+                    </div>
+                    <div class="dash-panel-body">
+                        <canvas id="salesOverviewChart" height="260"></canvas>
+                    </div>
+                </div>
+                <div>
+                    <div class="dash-panel-header">
+                        <h5><i class="fas fa-chart-pie"></i> Sales by Category (Last 7 Days)</h5>
+                    </div>
+                    <div class="dash-panel-body" style="display:flex;justify-content:center;align-items:center;min-height:292px;">
+                        @if(count($categoryLabels) > 0)
+                            <canvas id="categoryDonutChart" style="max-height:260px;"></canvas>
+                        @else
+                            <p style="color:#aaa;">No category data yet.</p>
+                        @endif
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -262,5 +280,55 @@
             }
         }
     });
+
+    // ── Donut Chart: Sales by Category (Last 7 Days) ──
+    var catLabels = @json($categoryLabels);
+    var catTotals = @json($categoryTotals);
+
+    if (catLabels.length > 0) {
+        var donutCtx = document.getElementById('categoryDonutChart').getContext('2d');
+        var donutColors = [
+            '#8e5fd9', '#43a047', '#0288d1', '#ef6c00', '#c62828',
+            '#00897b', '#5c6bc0', '#f4511e', '#6d4c41', '#78909c'
+        ];
+
+        new Chart(donutCtx, {
+            type: 'doughnut',
+            data: {
+                labels: catLabels,
+                datasets: [{
+                    data: catTotals,
+                    backgroundColor: donutColors.slice(0, catLabels.length),
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                cutout: '55%',
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { padding: 14, usePointStyle: true, pointStyleWidth: 10, font: { size: 12 } }
+                    },
+                    tooltip: {
+                        backgroundColor: '#333',
+                        titleFont: { size: 13 },
+                        bodyFont: { size: 13 },
+                        padding: 10,
+                        callbacks: {
+                            label: function(ctx) {
+                                var val = ctx.parsed;
+                                var total = ctx.dataset.data.reduce(function(a, b) { return a + b; }, 0);
+                                var pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+                                return 'KES ' + val.toLocaleString(undefined, {minimumFractionDigits:2}) + ' (' + pct + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
 </script>
 @endpush

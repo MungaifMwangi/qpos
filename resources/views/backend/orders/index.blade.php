@@ -1,39 +1,67 @@
 @extends('backend.master')
-
-@section('title', 'Sales')
+@section('title', ' ')
 
 @section('content')
-<div class="card">
-  <div class="card-body p-2 p-md-4 pt-0">
-    <div class="row g-4">
-      <div class="col-md-12">
-        <div class="card-body table-responsive p-0">
-          <table id="salesTable" class="table table-hover">
-            <thead>
-              <tr>
-                <th data-orderable="false">#</th>
-                <th>Sale ID</th>
-                <th>Customer</th>
-                <th>Items</th>
-                <th>Sub Total {{ currency()->symbol ?? '' }}</th>
-                <th>Discount {{ currency()->symbol ?? '' }}</th>
-                <th>Total {{ currency()->symbol ?? '' }}</th>
-                <th>Paid {{ currency()->symbol ?? '' }}</th>
-                <th>Due {{ currency()->symbol ?? '' }}</th>
-                <th>Method</th>
-                <th>Status</th>
-                <th data-orderable="false">Action</th>
-              </tr>
-            </thead>
-          </table>
-        </div>
-      </div>
+<div class="page-header" style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+    <div style="display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,#1a7a4e,#28a745);color:#fff;font-size:18px;flex-shrink:0">
+        <i class="fas fa-shopping-cart"></i>
     </div>
-  </div>
+    <div>
+        <h2 style="margin:0;font-size:20px;font-weight:700;color:#303030">Sales</h2>
+        <p style="margin:0;font-size:12px;color:#999">View and manage all sales transactions</p>
+    </div>
 </div>
 
-{{-- Void confirmation modal (must stay inside @section or Blade discards it) --}}
-@if(auth()->user()->hasRole('Admin'))
+<div class="filter-bar" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px;padding:12px 16px;background:#fff;border:1px solid #e8e8e8;border-radius:12px">
+    <label style="font-size:13px;font-weight:600">Status:</label>
+    <select id="filterStatus" class="form-control form-control-sm" style="width:160px;border-radius:8px">
+        <option value="">All</option>
+        <option value="paid">Paid</option>
+        <option value="pending">Pending</option>
+        <option value="voided">Voided</option>
+    </select>
+
+    <label style="font-size:13px;font-weight:600">Date From:</label>
+    <input type="date" id="filterFrom" class="form-control form-control-sm" style="width:150px;border-radius:8px">
+
+    <label style="font-size:13px;font-weight:600">Date To:</label>
+    <input type="date" id="filterTo" class="form-control form-control-sm" style="width:150px;border-radius:8px">
+
+    <button id="applyFilter" class="btn btn-sm" style="background:#2d2d2d;color:#fff;border-radius:8px;padding:6px 16px;font-weight:600">
+        Apply
+    </button>
+    <button id="resetFilter" class="btn btn-sm" style="background:#f5f5f5;color:#666;border:1px solid #e0e0e0;border-radius:8px;padding:6px 12px;font-weight:600">
+        Reset
+    </button>
+</div>
+
+<div style="background:#fff;border:1px solid #e8e8e8;border-radius:14px;overflow:hidden">
+    <div style="padding:16px 20px 8px">
+        <h6 style="margin:0;font-weight:700;color:#303030;font-size:13px">All Sales</h6>
+    </div>
+    <div style="padding:0 8px 8px">
+        <table id="salesTable" class="table table-hover" style="margin:0">
+            <thead>
+                <tr>
+                    <th style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">#</th>
+                    <th style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Sale ID</th>
+                    <th style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Customer</th>
+                    <th style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Items</th>
+                    <th style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Date</th>
+                    <th style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px" class="text-right">Total</th>
+                    <th style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px" class="text-right">Paid</th>
+                    <th style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px" class="text-right">Due</th>
+                    <th style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Method</th>
+                    <th style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Status</th>
+                    <th style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px" class="text-center">Actions</th>
+                </tr>
+            </thead>
+        </table>
+    </div>
+</div>
+
+{{-- Void confirmation modal --}}
+@if(auth()->user()->can('sale_void'))
 <div class="modal fade" id="voidModal" tabindex="-1" role="dialog" aria-labelledby="voidModalLabel" aria-hidden="true">
   <div class="modal-dialog" role="document">
     <div class="modal-content border-danger">
@@ -95,30 +123,44 @@
 
   var voidUrl      = "{{ route('backend.admin.orders.void', ['id' => '__ID__']) }}";
   var csrfToken    = "{{ csrf_token() }}";
-  var isAdmin      = {{ auth()->user()->hasRole('Admin') ? 'true' : 'false' }};
+  var canVoid      = {{ auth()->user()->can('sale_void') ? 'true' : 'false' }};
   var currentVoidId = null;
 
-  // ── DataTable ─────────────────────────────────────────────────
   var table = $('#salesTable').DataTable({
     processing: true,
     serverSide: true,
     ordering:   true,
-    order:      [[1, 'desc']],
-    ajax: { url: "{{ route('backend.admin.orders.index') }}" },
+    order:      [[4, 'desc']],
+    ajax: {
+      url: "{{ route('backend.admin.orders.index') }}",
+      data: function (d) {
+        d.status = $('#filterStatus').val();
+        d.from   = $('#filterFrom').val();
+        d.to     = $('#filterTo').val();
+      }
+    },
     columns: [
       { data: 'DT_RowIndex',    name: 'DT_RowIndex',    orderable: false, searchable: false },
       { data: 'saleId',         name: 'saleId' },
-      { data: 'customer',       name: 'customer' },
-      { data: 'item',           name: 'item' },
-      { data: 'sub_total',      name: 'sub_total' },
-      { data: 'discount',       name: 'discount' },
-      { data: 'total',          name: 'total' },
-      { data: 'paid',           name: 'paid' },
-      { data: 'due',            name: 'due' },
+      { data: 'customer',       name: 'customer.name' },
+      { data: 'item',           name: 'item',            orderable: false, searchable: false },
+      { data: 'date',           name: 'created_at' },
+      { data: 'total',          name: 'total',           className: 'text-right' },
+      { data: 'paid',           name: 'paid',            className: 'text-right' },
+      { data: 'due',            name: 'due',             className: 'text-right' },
       { data: 'payment_method', name: 'payment_method' },
-      { data: 'status',         name: 'status' },
-      { data: 'action',         name: 'action', orderable: false, searchable: false }
+      { data: 'status',         name: 'payment_status' },
+      { data: 'action',         name: 'action',          orderable: false, searchable: false, className: 'text-center' }
     ]
+  });
+
+  $('#applyFilter').on('click', function () { table.ajax.reload(); });
+
+  $('#resetFilter').on('click', function () {
+    $('#filterStatus').val('');
+    $('#filterFrom').val('');
+    $('#filterTo').val('');
+    table.ajax.reload();
   });
 
   function showAlert(opts) {
@@ -129,13 +171,12 @@
     return Promise.resolve();
   }
 
-  // ── Open void modal (admin only) ──────────────────────────────
   $(document).on('click', '.void-sale-btn', function () {
-    if (!isAdmin) {
+    if (!canVoid) {
       showAlert({
         icon:  'error',
         title: 'Access Denied',
-        text:  'Only administrators can void a sale.',
+        text:  'You do not have permission to void a sale.',
       });
       return;
     }
@@ -161,7 +202,6 @@
     setTimeout(function () { $('#voidReason').focus(); }, 450);
   });
 
-  // ── Confirm void ─────────────────────────────────────────────
   $('#confirmVoidBtn').on('click', function () {
     var reason = $.trim($('#voidReason').val());
 
@@ -203,7 +243,7 @@
         if (xhr.responseJSON && xhr.responseJSON.message) {
           msg = xhr.responseJSON.message;
         } else if (xhr.status === 403) {
-          msg = 'Access denied. Only administrators can void a sale.';
+          msg = 'Access denied. You do not have permission to void a sale.';
         } else if (xhr.status === 422) {
           msg = xhr.responseJSON && xhr.responseJSON.errors && xhr.responseJSON.errors.reason
             ? xhr.responseJSON.errors.reason[0]
@@ -212,7 +252,6 @@
         btn.prop('disabled', false)
            .html('<i class="fas fa-ban mr-1"></i> Void Sale');
 
-        // 403 = not admin, 422 = already voided / validation
         var icon = xhr.status === 403 ? 'warning' : 'error';
         showAlert({
           icon:  icon,
@@ -223,7 +262,6 @@
     });
   });
 
-  // Live validation feedback while typing
   $('#voidReason').on('input', function () {
     if ($.trim($(this).val()).length >= 5) {
       $(this).removeClass('is-invalid');
@@ -231,7 +269,6 @@
     }
   });
 
-  // Reset modal state when dismissed
   $('#voidModal').on('hidden.bs.modal', function () {
     $('#voidReason').val('').removeClass('is-invalid');
     $('#voidReasonError').addClass('d-none');

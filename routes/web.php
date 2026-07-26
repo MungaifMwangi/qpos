@@ -67,6 +67,11 @@ Route::prefix('admin')->as('backend.admin.')->middleware(['admin'])->group(funct
     Route::resource('brands', BrandController::class);
     Route::resource('purchase', PurchaseController::class);
     Route::resource('suppliers', SupplierController::class);
+    Route::get('supplier-invoices', [\App\Http\Controllers\Backend\Procurement\SupplierInvoiceController::class, 'index'])->name('supplier-invoices.index');
+    Route::get('supplier-invoices/data', [\App\Http\Controllers\Backend\Procurement\SupplierInvoiceController::class, 'data'])->name('supplier-invoices.data');
+    Route::get('supplier-invoices/kpis', [\App\Http\Controllers\Backend\Procurement\SupplierInvoiceController::class, 'kpis'])->name('supplier-invoices.kpis');
+    Route::get('supplier-invoices/{id}/view-grn', [\App\Http\Controllers\Backend\Procurement\SupplierInvoiceController::class, 'viewGrn'])->name('supplier-invoices.view-grn');
+    Route::post('supplier-invoices/pay', [\App\Http\Controllers\Backend\Procurement\SupplierInvoiceController::class, 'payInvoice'])->name('supplier-invoices.pay');
     Route::resource('customers', CustomerController::class);
     Route::resource('units', UnitController::class);
     Route::resource('currencies', CurrencyController::class);
@@ -90,12 +95,22 @@ Route::prefix('admin')->as('backend.admin.')->middleware(['admin'])->group(funct
     Route::get('/sale/summery', [ReportController::class, 'saleSummery'])->name('sale.summery');
     Route::get('/sale/report', [ReportController::class, 'saleReport'])->name('sale.report');
     Route::get('/inventory/report', [ReportController::class, 'inventoryReport'])->name('inventory.report');
+    Route::get('/inventory/overview', [ReportController::class, 'inventoryOverview'])->name('inventory.overview');
     Route::post('/inventory/adjust', [ReportController::class, 'adjustStock'])->name('inventory.adjust');
+
+    Route::prefix('inventory/goods-received')->name('inventory.goods-received.')->group(function () {
+        $gc = \App\Http\Controllers\Backend\Inventory\GoodsReceivedController::class;
+        Route::get('/',           [$gc, 'index'])->name('index');
+        Route::get('/{id}/view',  [$gc, 'view'])->name('view');
+        Route::get('/{id}/print', [$gc, 'print'])->name('print');
+    });
+
+    Route::get('profit-loss', [ProfitLossController::class, 'index'])->name('profit-loss.index');
+    Route::get('profit-loss/api', [ProfitLossController::class, 'apiData'])->name('profit-loss.api');
     //end report
 
     //start accounting
     Route::resource('expenses', ExpenseController::class);
-    Route::get('profit-loss', [ProfitLossController::class, 'index'])->name('profit-loss.index');
 
     // Double-Entry General Ledger
     Route::get('accounting/ledger/chart', [\App\Http\Controllers\Backend\Accounting\GeneralLedgerController::class, 'chartOfAccounts'])->name('accounting.ledger.chart');

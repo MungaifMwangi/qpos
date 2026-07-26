@@ -137,8 +137,8 @@ $route = request()->route()->getName();
             @if (auth()->user()->hasAnyPermission([
                 'reports_inventory','lpo_view','grn_receive',
             ]))
-            <li class="nav-item {{ request()->routeIs(['backend.admin.inventory.*','backend.admin.lpo.grn*']) ? 'menu-open' : '' }}">
-                <a href="#" class="nav-link {{ request()->routeIs(['backend.admin.inventory.*','backend.admin.lpo.grn*']) ? 'active' : '' }}">
+            <li class="nav-item {{ request()->routeIs(['backend.admin.inventory.*']) ? 'menu-open' : '' }}">
+                <a href="#" class="nav-link {{ request()->routeIs(['backend.admin.inventory.*']) ? 'active' : '' }}">
                     <i class="fas fa-warehouse nav-icon"></i>
                     <p>
                         Inventory
@@ -146,19 +146,10 @@ $route = request()->route()->getName();
                     </p>
                 </a>
                 <ul class="nav nav-treeview">
-                    @can('reports_inventory')
-                    <li class="nav-item">
-                        <a href="{{ route('backend.admin.inventory.report') }}"
-                            class="nav-link {{ request()->routeIs(['backend.admin.inventory.report']) ? 'active' : '' }}">
-                            <i class="fas fa-layer-group nav-icon"></i>
-                            <p>Stock Levels</p>
-                        </a>
-                    </li>
-                    @endcan
                     @can('grn_receive')
                     <li class="nav-item">
-                        <a href="{{ route('backend.admin.lpo.index') }}"
-                            class="nav-link {{ request()->routeIs(['backend.admin.lpo.show*']) ? 'active' : '' }}">
+                        <a href="{{ route('backend.admin.inventory.goods-received.index') }}"
+                            class="nav-link {{ request()->routeIs('backend.admin.inventory.goods-received.*') ? 'active' : '' }}">
                             <i class="fas fa-truck-loading nav-icon"></i>
                             <p>Goods Received</p>
                         </a>
@@ -169,7 +160,7 @@ $route = request()->route()->getName();
                         <a href="{{ route('backend.admin.inventory.report') }}#adjust"
                             class="nav-link">
                             <i class="fas fa-balance-scale nav-icon"></i>
-                            <p>Adjustments</p>
+                            <p>Stock Adjustment</p>
                         </a>
                     </li>
                     @endcan
@@ -181,8 +172,8 @@ $route = request()->route()->getName();
             @if (auth()->user()->hasAnyPermission([
                 'supplier_create','supplier_view','supplier_update','supplier_delete',
             ]))
-            <li class="nav-item {{ request()->routeIs(['backend.admin.suppliers.*']) ? 'menu-open' : '' }}">
-                <a href="#" class="nav-link {{ request()->routeIs(['backend.admin.suppliers.*']) ? 'active' : '' }}">
+            <li class="nav-item {{ request()->routeIs(['backend.admin.suppliers.*','backend.admin.supplier-invoices.*']) ? 'menu-open' : '' }}">
+                <a href="#" class="nav-link {{ request()->routeIs(['backend.admin.suppliers.*','backend.admin.supplier-invoices.*']) ? 'active' : '' }}">
                     <i class="fas fa-truck nav-icon"></i>
                     <p>
                         Suppliers
@@ -205,6 +196,15 @@ $route = request()->route()->getName();
                             class="nav-link {{ request()->routeIs(['backend.admin.suppliers.create']) ? 'active' : '' }}">
                             <i class="fas fa-plus nav-icon"></i>
                             <p>Add Supplier</p>
+                        </a>
+                    </li>
+                    @endcan
+                    @can('lpo_view')
+                    <li class="nav-item">
+                        <a href="{{ route('backend.admin.supplier-invoices.index') }}"
+                            class="nav-link {{ request()->routeIs(['backend.admin.supplier-invoices.*']) ? 'active' : '' }}">
+                            <i class="fas fa-file-invoice-dollar nav-icon"></i>
+                            <p>Supplier Invoices</p>
                         </a>
                     </li>
                     @endcan
@@ -310,10 +310,10 @@ $route = request()->route()->getName();
             @if (auth()->user()->hasAnyPermission([
                 'chart_of_accounts_view','general_ledger_view','trial_balance_view',
                 'debtors_view','debtors_receipt_create','creditors_view','creditors_payment_create',
-                'expense_view','expense_create','expense_update','expense_delete','profit_loss_view',
+                'expense_view','expense_create','expense_update','expense_delete',
             ]))
-            <li class="nav-item {{ request()->routeIs(['backend.admin.expenses.*','backend.admin.profit-loss.*','backend.admin.accounting.*','backend.admin.debtors.*','backend.admin.creditors.*']) ? 'menu-open' : '' }}">
-                <a href="#" class="nav-link {{ request()->routeIs(['backend.admin.expenses.*','backend.admin.profit-loss.*','backend.admin.accounting.*','backend.admin.debtors.*','backend.admin.creditors.*']) ? 'active' : '' }}">
+            <li class="nav-item {{ request()->routeIs(['backend.admin.expenses.*','backend.admin.accounting.*','backend.admin.debtors.*','backend.admin.creditors.*']) ? 'menu-open' : '' }}">
+                <a href="#" class="nav-link {{ request()->routeIs(['backend.admin.expenses.*','backend.admin.accounting.*','backend.admin.debtors.*','backend.admin.creditors.*']) ? 'active' : '' }}">
                     <i class="fas fa-calculator nav-icon"></i>
                     <p>
                         Accounting & Ledger
@@ -375,25 +375,16 @@ $route = request()->route()->getName();
                         </a>
                     </li>
                     @endcan
-                    @can('profit_loss_view')
-                    <li class="nav-item">
-                        <a href="{{ route('backend.admin.profit-loss.index') }}"
-                            class="nav-link {{ request()->routeIs(['backend.admin.profit-loss.*']) ? 'active' : '' }}">
-                            <i class="fas fa-chart-pie nav-icon"></i>
-                            <p>Profit & Loss</p>
-                        </a>
-                    </li>
-                    @endcan
                 </ul>
             </li>
             @endif
 
             {{-- ── Reports ── --}}
             @if (auth()->user()->hasAnyPermission([
-                'reports_summary','reports_sales','reports_inventory',
+                'reports_summary','reports_sales','reports_inventory','profit_loss_view',
             ]))
-            <li class="nav-item {{ request()->routeIs(['backend.admin.sale.report','backend.admin.sale.summery']) ? 'menu-open' : '' }}">
-                <a href="#" class="nav-link {{ request()->routeIs(['backend.admin.sale.report','backend.admin.sale.summery']) ? 'active' : '' }}">
+            <li class="nav-item {{ request()->routeIs(['backend.admin.sale.report','backend.admin.sale.summery','backend.admin.profit-loss.*','backend.admin.inventory.overview']) ? 'menu-open' : '' }}">
+                <a href="#" class="nav-link {{ request()->routeIs(['backend.admin.sale.report','backend.admin.sale.summery','backend.admin.profit-loss.*','backend.admin.inventory.overview']) ? 'active' : '' }}">
                     <i class="fas fa-chart-bar nav-icon"></i>
                     <p>
                         Reports
@@ -419,11 +410,28 @@ $route = request()->route()->getName();
                         </a>
                     </li>
                     @endcan
+                    @can('profit_loss_view')
+                    <li class="nav-item">
+                        <a href="{{ route('backend.admin.profit-loss.index') }}"
+                            class="nav-link {{ request()->routeIs(['backend.admin.profit-loss.*']) ? 'active' : '' }}">
+                            <i class="fas fa-file-invoice-dollar nav-icon"></i>
+                            <p>Profit & Loss</p>
+                        </a>
+                    </li>
+                    @endcan
+                    @can('reports_inventory')
+                    <li class="nav-item">
+                        <a href="{{ route('backend.admin.inventory.overview') }}"
+                            class="nav-link {{ request()->routeIs(['backend.admin.inventory.overview']) ? 'active' : '' }}">
+                            <i class="fas fa-warehouse nav-icon"></i>
+                            <p>Inventory Overview</p>
+                        </a>
+                    </li>
+                    @endcan
                 </ul>
             </li>
             @endif
 
-            {{-- ── Settings ── --}}
             @if (auth()->user()->hasAnyPermission([
                 'currency_create','currency_view','currency_update','currency_delete','currency_set_default',
                 'role_create','role_view','role_update','role_delete','permission_view',
