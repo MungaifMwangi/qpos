@@ -25,4 +25,9 @@ class GrnItem extends Model
     {
         return $this->belongsTo(Product::class, 'product_id');
     }
+
+    public function lpoItem()
+    {
+        return $this->belongsTo(\App\Models\LpoItem::class, 'lpo_item_id');
+    }
 }

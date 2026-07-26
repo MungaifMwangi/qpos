@@ -65,23 +65,25 @@ Route::prefix('admin')->as('backend.admin.')->middleware(['admin'])->group(funct
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
     Route::resource('products', ProductController::class);
     Route::resource('brands', BrandController::class);
-    Route::resource('orders', OrderController::class);
     Route::resource('purchase', PurchaseController::class);
     Route::resource('suppliers', SupplierController::class);
     Route::resource('customers', CustomerController::class);
-    Route::resource('products', ProductController::class);
     Route::resource('units', UnitController::class);
     Route::resource('currencies', CurrencyController::class);
     Route::match(['get', 'post'], 'import/products', [ProductController::class,'import'])->name('products.import');
     Route::get('currencies/default/{id}', [CurrencyController::class, 'setDefault'])->name('currencies.setDefault');
     Route::get('customers/orders/{id}', [CustomerController::class, 'orders'])->name('customers.orders');
     Route::get('purchase/products/{id}', [PurchaseController::class, 'purchaseProducts'])->name('purchase.products');
+    // Specific order sub-routes MUST come before Route::resource('orders') to avoid wildcard collision
     Route::get('orders/invoice/{id}', [OrderController::class,'invoice'])->name('orders.invoice');
     Route::get('orders/pos-invoice/{id}', [OrderController::class, 'posInvoice'])->name('orders.pos-invoice');
     Route::get('orders/transactions/{id}', [OrderController::class, 'transactions'])->name('orders.transactions');
     Route::match(['get', 'post'], 'orders/due/collection/{id}', [OrderController::class, 'collection'])->name('due.collection');
     Route::get('collection/invoice/{id}', [OrderController::class, 'collectionInvoice'])->name('collectionInvoice');
-    Route::delete('orders/void/{id}', [OrderController::class, 'void'])->name('orders.void');
+    // void uses POST to avoid being swallowed by resource DELETE admin/orders/{order}
+    Route::post('orders/void/{id}', [OrderController::class, 'void'])->name('orders.void');
+    // Resource route AFTER all specific order routes
+    Route::resource('orders', OrderController::class);
     Route::resource('categories', CategoryController::class);
     //start report
 
@@ -112,12 +114,17 @@ Route::prefix('admin')->as('backend.admin.')->middleware(['admin'])->group(funct
     //end accounting
 
     //start LPO procurement
-    Route::get('lpo', [\App\Http\Controllers\Backend\Procurement\LpoController::class, 'index'])->name('lpo.index');
-    Route::get('lpo/create', [\App\Http\Controllers\Backend\Procurement\LpoController::class, 'create'])->name('lpo.create');
-    Route::post('lpo/store', [\App\Http\Controllers\Backend\Procurement\LpoController::class, 'store'])->name('lpo.store');
-    Route::get('lpo/show/{id}', [\App\Http\Controllers\Backend\Procurement\LpoController::class, 'show'])->name('lpo.show');
-    Route::post('lpo/{id}/grn', [\App\Http\Controllers\Backend\Procurement\LpoController::class, 'storeGrn'])->name('lpo.store-grn');
-    Route::post('lpo/{id}/invoice', [\App\Http\Controllers\Backend\Procurement\LpoController::class, 'storeInvoice'])->name('lpo.store-invoice');
+    Route::prefix('lpo')->name('lpo.')->group(function () {
+        $c = \App\Http\Controllers\Backend\Procurement\LpoController::class;
+        Route::get('/',              [$c, 'index'])       ->name('index');
+        Route::get('/create',        [$c, 'create'])      ->name('create');
+        Route::post('/store',        [$c, 'store'])       ->name('store');
+        Route::get('/show/{id}',     [$c, 'show'])        ->name('show');
+        Route::get('/print/{id}',    [$c, 'printLpo'])    ->name('print');
+        Route::get('/{id}/items',    [$c, 'getItems'])    ->name('items');   // AJAX — GRN modal data
+        Route::post('/{id}/grn',     [$c, 'storeGrn'])   ->name('store-grn');
+        Route::post('/{id}/invoice', [$c, 'storeInvoice'])->name('store-invoice');
+    });
     //end LPO procurement
 
    // start pos

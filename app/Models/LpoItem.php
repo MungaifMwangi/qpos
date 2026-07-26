@@ -26,4 +26,9 @@ class LpoItem extends Model
     {
         return $this->belongsTo(Product::class, 'product_id');
     }
+
+    public function grnItems()
+    {
+        return $this->hasMany(GrnItem::class, 'lpo_item_id');
+    }
 }

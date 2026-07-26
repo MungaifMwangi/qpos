@@ -33,6 +33,8 @@ class OrderController extends Controller
     {
         if ($request->ajax()) {
             $orders = Order::with('customer')->orderBy('id', 'desc')->get();
+            $isAdmin = auth()->user()->hasRole('Admin');
+
             return DataTables::of($orders)
                 ->addIndexColumn()
                 ->addColumn('saleId', fn($data) => "#" . $data->id)
@@ -44,21 +46,56 @@ class OrderController extends Controller
                 ->addColumn('paid', fn($data) => number_format($data->paid, 2, '.', ','))
                 ->addColumn('due', fn($data) => number_format($data->due, 2, '.', ','))
                 ->addColumn('payment_method', fn($data) => '<span class="badge bg-info">' . strtoupper($data->payment_method ?? 'CASH') . '</span>')
-                ->addColumn('status', fn($data) => ($data->payment_status === 'paid' || $data->status)
-                    ? '<span class="badge bg-success">Paid</span>'
-                    : ($data->payment_status === 'pending' ? '<span class="badge bg-warning">Pending</span>' : '<span class="badge bg-danger">Failed/Due</span>'))
-                ->addColumn('action', function ($data) {
-                    $buttons = '';
-                    $buttons .= '<a class="btn btn-success btn-sm m-1" href="' . route('backend.admin.orders.invoice', $data->id) . '"><i class="fas fa-file-invoice"></i> Invoice</a>';
-                    $buttons .= '<a class="btn btn-secondary btn-sm m-1" href="' . route('backend.admin.orders.pos-invoice', $data->id) . '"><i class="fas fa-file-invoice"></i> POS Invoice</a>';
-                    if (!$data->status && $data->payment_status !== 'paid') {
-                        $buttons .= '<a class="btn btn-warning btn-sm m-1" href="' . route('backend.admin.due.collection', $data->id) . '"><i class="fas fa-receipt"></i> Collection</a>';
+                ->addColumn('status', function ($data) {
+                    if ($data->payment_status === 'voided') {
+                        return '<span class="badge bg-dark">Voided</span>';
                     }
-                    $buttons .= '<a class="btn btn-primary btn-sm m-1" href="' . route('backend.admin.orders.transactions', $data->id) . '"><i class="fas fa-exchange-alt"></i> Ledger Tx</a>';
-                    $buttons .= '<button class="btn btn-danger btn-sm m-1 void-sale-btn" data-id="' . $data->id . '" data-sale="#' . $data->id . '"><i class="fas fa-ban"></i> Void</button>';
+                    if ($data->payment_status === 'paid' || $data->status) {
+                        return '<span class="badge bg-success">Paid</span>';
+                    }
+                    if ($data->payment_status === 'pending') {
+                        return '<span class="badge bg-warning text-dark">Pending</span>';
+                    }
+                    return '<span class="badge bg-danger">Failed/Due</span>';
+                })
+                ->addColumn('action', function ($data) use ($isAdmin) {
+                    // Voided orders — no further actions
+                    if ($data->payment_status === 'voided') {
+                        return '<span class="badge bg-dark p-2"><i class="fas fa-ban mr-1"></i>Voided</span>';
+                    }
+
+                    $buttons = '';
+
+                    // Paid orders get a Receipt (POS invoice), pending orders get Invoice
+                    if ($data->payment_status === 'paid' || $data->status) {
+                        // Paid — show receipt only
+                        $buttons .= '<a class="btn btn-success btn-sm m-1" href="'
+                            . route('backend.admin.orders.pos-invoice', $data->id)
+                            . '" title="Receipt"><i class="fas fa-receipt"></i> Receipt</a>';
+                    } else {
+                        // Pending / due — show invoice and collection
+                        $buttons .= '<a class="btn btn-info btn-sm m-1" href="'
+                            . route('backend.admin.orders.invoice', $data->id)
+                            . '" title="Invoice"><i class="fas fa-file-invoice"></i> Invoice</a>';
+
+                        $buttons .= '<a class="btn btn-warning btn-sm m-1" href="'
+                            . route('backend.admin.due.collection', $data->id)
+                            . '" title="Record collection"><i class="fas fa-hand-holding-usd"></i> Collect</a>';
+                    }
+
+                    // Void button — admin only, not for already-voided
+                    if ($isAdmin) {
+                        $buttons .= '<button class="btn btn-danger btn-sm m-1 void-sale-btn"'
+                            . ' data-id="' . $data->id . '"'
+                            . ' data-sale="#' . $data->id . '"'
+                            . ' title="Void this sale">'
+                            . '<i class="fas fa-ban"></i> Void</button>';
+                    }
+
                     return $buttons;
                 })
-                ->rawColumns(['saleId', 'customer', 'item', 'sub_total', 'discount', 'total', 'paid', 'due', 'payment_method', 'status', 'action'])
+                ->rawColumns(['saleId', 'customer', 'item', 'sub_total', 'discount', 'total',
+                              'paid', 'due', 'payment_method', 'status', 'action'])
                 ->toJson();
         }
         return view('backend.orders.index');
@@ -184,52 +221,105 @@ class OrderController extends Controller
     }
 
     /**
-     * Void a sale: reverse all GL entries, restore stock, delete transactions.
+     * Void a sale — Admin only.
+     * Accepts JSON body: { "reason": "..." }
+     * Reverses GL entries, restores stock, nullifies debtor records,
+     * deletes collection receipts, marks order as voided.
      */
     public function void(Request $request, int $id)
     {
-        $order = Order::with(['products.product'])->findOrFail($id);
-
-        if ($order->payment_status === 'voided') {
-            return response()->json(['message' => 'This sale has already been voided.'], 422);
+        // ── Admin-only gate ─────────────────────────────────────────
+        if (!auth()->user()->hasRole('Admin')) {
+            return response()->json([
+                'message' => 'Access denied. Only administrators can void a sale.',
+            ], 403);
         }
 
+        // ── Read body — works for both JSON and form-encoded ────────
+        // When contentType is application/json, Laravel merges json() automatically
+        // but we force-merge to be safe.
+        if ($request->isJson()) {
+            $request->merge($request->json()->all());
+        }
+
+        $request->validate([
+            'reason' => 'required|string|min:5|max:500',
+        ]);
+
+        $order = Order::with(['products', 'transactions'])->findOrFail($id);
+
+        if ($order->payment_status === 'voided') {
+            return response()->json([
+                'message' => "Sale #{$id} has already been voided.",
+            ], 422);
+        }
+
+        $reason   = trim($request->input('reason'));
+        $actorName = auth()->user()->name;
+        $voidedAt  = now()->toDateTimeString();
+
         try {
-            DB::transaction(function () use ($order) {
-                // 1. Reverse all journal entries linked to this order
+            DB::transaction(function () use ($order, $reason, $actorName, $voidedAt) {
+
+                // 1. Reverse all posted GL journal entries for this order
                 $journalEntries = \App\Models\JournalEntry::where('reference_type', 'Order')
                     ->where('reference_id', $order->id)
                     ->where('status', 'posted')
                     ->get();
 
                 foreach ($journalEntries as $entry) {
-                    $this->ledgerService->reverseJournalEntry($entry, 'Sale voided by ' . auth()->user()->name);
+                    $this->ledgerService->reverseJournalEntry(
+                        $entry,
+                        "Void of Sale #{$order->id} — {$reason} — By: {$actorName}"
+                    );
                 }
 
-                // 2. Restore product stock
+                // 2. Restore product stock from order line items
                 foreach ($order->products as $line) {
-                    if ($line->product) {
-                        $line->product->increment('quantity', $line->quantity);
-                    }
+                    Product::where('id', $line->product_id)
+                           ->increment('quantity', (int) $line->quantity);
                 }
 
-                // 3. Remove any debtor transactions linked to this order
-                DB::table('debtor_transactions')->where('order_id', $order->id)->delete();
+                // 3. Delete debtor receipt allocations first (FK constraint),
+                //    then the debtor invoice transactions for this order
+                $debtorTxIds = DB::table('debtor_transactions')
+                    ->where('order_id', $order->id)
+                    ->pluck('id');
 
-                // 4. Delete order transactions (collection receipts)
+                if ($debtorTxIds->isNotEmpty()) {
+                    DB::table('debtor_receipt_allocations')
+                        ->whereIn('invoice_transaction_id', $debtorTxIds)
+                        ->delete();
+
+                    DB::table('debtor_transactions')
+                        ->where('order_id', $order->id)
+                        ->delete();
+                }
+
+                // 4. Delete collection receipts (order_transactions)
                 $order->transactions()->delete();
 
-                // 5. Mark the order as voided
+                // 5. Mark order as voided
                 $order->update([
                     'payment_status' => 'voided',
                     'status'         => 0,
-                    'note'           => ($order->note ? $order->note . ' | ' : '') . 'VOIDED by ' . auth()->user()->name . ' on ' . now()->toDateTimeString(),
+                    'paid'           => 0,
+                    'due'            => 0,
+                    'note'           => trim(
+                        ($order->note ? $order->note . ' | ' : '') .
+                        "VOIDED by {$actorName} on {$voidedAt}. Reason: {$reason}"
+                    ),
                 ]);
             });
 
-            return response()->json(['message' => 'Sale #' . $order->id . ' has been voided and all associated transactions reversed.']);
+            return response()->json([
+                'message' => "Sale #{$order->id} voided successfully. Stock restored and all associated records nullified.",
+            ], 200);
+
         } catch (Exception $e) {
-            return response()->json(['message' => 'Void failed: ' . $e->getMessage()], 500);
+            return response()->json([
+                'message' => 'Void failed: ' . $e->getMessage(),
+            ], 500);
         }
     }
 }
