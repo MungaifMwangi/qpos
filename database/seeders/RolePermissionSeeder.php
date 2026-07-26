@@ -102,6 +102,7 @@ class RolePermissionSeeder extends Seeder
             'notification_settings',
             'website_status_settings',
             'invoice_settings',
+            'system_update_settings',
 
             //accounting & ledger
             'chart_of_accounts_view',

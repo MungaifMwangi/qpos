@@ -166,6 +166,9 @@ Route::prefix('admin')->as('backend.admin.')->middleware(['admin'])->group(funct
                 Route::post('update-website-status', 'websiteStatusUpdate')->name('settings.website.status.update');
 
                 Route::post('update-invoice-settings', 'websiteInvoiceUpdate')->name('settings.website.invoice.update');
+
+                Route::get('check-update', 'checkForUpdate')->name('settings.website.check.update');
+                Route::post('apply-update', 'applyUpdate')->name('settings.website.apply.update');
             });
 
             Route::controller(RoleController::class)->prefix('roles')->group(function () {

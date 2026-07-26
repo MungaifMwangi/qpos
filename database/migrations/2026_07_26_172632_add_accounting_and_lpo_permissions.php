@@ -25,6 +25,9 @@ return new class extends Migration
             'lpo_create',
             'grn_receive',
             'lpo_invoice_match',
+
+            // System Update
+            'system_update_settings',
         ];
 
         $adminRole = Role::where('name', 'Admin')->first();
@@ -51,6 +54,7 @@ return new class extends Migration
             'lpo_create',
             'grn_receive',
             'lpo_invoice_match',
+            'system_update_settings',
         ];
 
         foreach ($permissions as $permissionName) {

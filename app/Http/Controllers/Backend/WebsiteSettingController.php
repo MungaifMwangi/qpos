@@ -122,4 +122,95 @@ class WebsiteSettingController extends Controller
         return to_route('backend.admin.settings.website.general', ['active-tab' => 'invoice-settings'])
             ->with('success', 'Updated successfully');
     }
+
+    public function getCurrentVersion()
+    {
+        $base = base_path();
+        $log = trim(shell_exec("git -C \"{$base}\" log -1 --pretty=format:'%s' 2>&1") ?? '');
+        $hash = trim(shell_exec("git -C \"{$base}\" rev-parse --short HEAD 2>&1") ?? '');
+        $version = 'Unknown';
+        if (preg_match('/Version\s+([\d.]+)/i', $log, $m)) {
+            $version = $m[1];
+        }
+        return ['version' => $version, 'commit' => $hash, 'message' => $log];
+    }
+
+    public function checkForUpdate()
+    {
+        abort_if(!auth()->user()->can('system_update_settings'), 403);
+
+        $base = base_path();
+        $branch = trim(shell_exec("git -C \"{$base}\" rev-parse --abbrev-ref HEAD 2>&1") ?? 'main');
+
+        shell_exec("git -C \"{$base}\" fetch origin 2>&1");
+
+        $localHash  = trim(shell_exec("git -C \"{$base}\" rev-parse HEAD 2>&1") ?? '');
+        $remoteHash = trim(shell_exec("git -C \"{$base}\" rev-parse origin/{$branch} 2>&1") ?? '');
+
+        $localCommitMsg  = trim(shell_exec("git -C \"{$base}\" log -1 --pretty=format:'%s' 2>&1") ?? '');
+        $remoteCommitMsg = trim(shell_exec("git -C \"{$base}\" log -1 --pretty=format:'%s' origin/{$branch} 2>&1") ?? '');
+
+        $localVersion = 'Unknown';
+        if (preg_match('/Version\s+([\d.]+)/i', $localCommitMsg, $m)) {
+            $localVersion = $m[1];
+        }
+        $remoteVersion = 'Unknown';
+        if (preg_match('/Version\s+([\d.]+)/i', $remoteCommitMsg, $m)) {
+            $remoteVersion = $m[1];
+        }
+
+        $updatable = strtolower($localHash) !== strtolower($remoteHash);
+
+        $behind = 0;
+        if ($updatable) {
+            $behind = (int) trim(shell_exec("git -C \"{$base}\" rev-list --count HEAD..origin/{$branch} 2>&1") ?? '0');
+        }
+
+        return response()->json([
+            'updatable'      => $updatable,
+            'local_version'  => $localVersion,
+            'remote_version' => $remoteVersion,
+            'local_hash'     => substr($localHash, 0, 7),
+            'remote_hash'    => substr($remoteHash, 0, 7),
+            'behind'         => $behind,
+            'branch'         => $branch,
+        ]);
+    }
+
+    public function applyUpdate()
+    {
+        abort_if(!auth()->user()->can('system_update_settings'), 403);
+
+        $base = base_path();
+        $output = [];
+        $exitCode = 0;
+
+        $commands = [
+            ['label' => 'Pulling latest changes from git...',    'cmd' => "git -C \"{$base}\" pull origin 2>&1"],
+            ['label' => 'Installing Composer dependencies...',   'cmd' => "composer install --no-dev --optimize-autoloader --no-interaction 2>&1", 'workdir' => $base],
+            ['label' => 'Installing NPM dependencies...',        'cmd' => "npm install --no-optional 2>&1", 'workdir' => $base],
+            ['label' => 'Building frontend assets...',           'cmd' => "npm run build 2>&1", 'workdir' => $base],
+            ['label' => 'Running database migrations...',        'cmd' => "php artisan migrate --force 2>&1", 'workdir' => $base],
+            ['label' => 'Clearing application cache...',         'cmd' => "php artisan optimize:clear 2>&1", 'workdir' => $base],
+            ['label' => 'Resetting permission cache...',         'cmd' => "php artisan permission:cache-reset 2>&1", 'workdir' => $base],
+        ];
+
+        foreach ($commands as $step) {
+            $output[] = "==> {$step['label']}";
+            $workdir = $step['workdir'] ?? $base;
+            $result = [];
+            exec("cd \"{$workdir}\" && {$step['cmd']}", $result, $exitCode);
+            $output[] = implode("\n", $result);
+            $output[] = '';
+        }
+
+        $versionInfo = $this->getCurrentVersion();
+
+        return response()->json([
+            'success' => true,
+            'log'     => implode("\n", $output),
+            'version' => $versionInfo['version'],
+            'commit'  => $versionInfo['commit'],
+        ]);
+    }
 }

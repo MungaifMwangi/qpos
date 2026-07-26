@@ -414,6 +414,7 @@ $route = request()->route()->getName();
             'notification_settings',
             'website_status_settings',
             'invoice_settings',
+            'system_update_settings',
             ]))
             <li class="nav-header">SETTINGS</li>
 
@@ -435,6 +436,7 @@ $route = request()->route()->getName();
                     'notification_settings',
                     'website_status_settings',
                     'invoice_settings',
+                    'system_update_settings',
                     ]))
                     <li class="nav-item">
                         <a href="{{ route('backend.admin.settings.website.general') }}?active-tab=website-info"
