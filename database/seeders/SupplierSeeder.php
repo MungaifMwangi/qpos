@@ -14,6 +14,10 @@ class SupplierSeeder extends Seeder
      */
     public function run(): void
     {
+        if (app()->environment('production')) {
+            $this->command?->warn('SKIPPED: SupplierSeeder does not run in production.');
+            return;
+        }
 
         $faker = Faker::create();
         for ($i = 0; $i < 10; $i++) {

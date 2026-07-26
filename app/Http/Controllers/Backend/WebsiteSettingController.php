@@ -185,12 +185,14 @@ class WebsiteSettingController extends Controller
         $output = [];
         $exitCode = 0;
 
+        // SAFETY: Only migrate (schema changes). NEVER run db:seed.
+        // Seeders contain dummy/demo data that must not overwrite client data.
         $commands = [
             ['label' => 'Pulling latest changes from git...',    'cmd' => "git -C \"{$base}\" pull origin 2>&1"],
             ['label' => 'Installing Composer dependencies...',   'cmd' => "composer install --no-dev --optimize-autoloader --no-interaction 2>&1", 'workdir' => $base],
             ['label' => 'Installing NPM dependencies...',        'cmd' => "npm install --no-optional 2>&1", 'workdir' => $base],
             ['label' => 'Building frontend assets...',           'cmd' => "npm run build 2>&1", 'workdir' => $base],
-            ['label' => 'Running database migrations...',        'cmd' => "php artisan migrate --force 2>&1", 'workdir' => $base],
+            ['label' => 'Running database migrations (schema only — no seeders)...', 'cmd' => "php artisan migrate --force 2>&1", 'workdir' => $base],
             ['label' => 'Clearing application cache...',         'cmd' => "php artisan optimize:clear 2>&1", 'workdir' => $base],
             ['label' => 'Resetting permission cache...',         'cmd' => "php artisan permission:cache-reset 2>&1", 'workdir' => $base],
         ];

@@ -13,6 +13,11 @@ class ProductSeeder extends Seeder
 {
     public function run()
     {
+        if (app()->environment('production')) {
+            $this->command?->warn('SKIPPED: ProductSeeder does not run in production.');
+            return;
+        }
+
         $faker = Faker::create();
 
         // Create random categories

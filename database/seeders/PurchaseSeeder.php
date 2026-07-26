@@ -17,6 +17,11 @@ class PurchaseSeeder extends Seeder
      */
     public function run(): void
     {
+        if (app()->environment('production')) {
+            $this->command?->warn('SKIPPED: PurchaseSeeder does not run in production.');
+            return;
+        }
+
         DB::transaction(function () {
             // Retrieve random suppliers and users
             $suppliers = Supplier::all();
