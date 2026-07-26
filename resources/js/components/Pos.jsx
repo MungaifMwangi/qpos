@@ -133,14 +133,15 @@ export default function Pos() {
         }
     }, [searchBarcode]);
 
-    // Infinite scroll logic
+    // Infinite scroll logic — only active on POS page
     useEffect(() => {
+        if (!document.getElementById('cart')) return;
+
         const handleScroll = () => {
             if (
                 window.innerHeight + document.documentElement.scrollTop >=
                 document.documentElement.offsetHeight
             ) {
-                // Load next page if not on the last page
                 if (currentPage < totalPages) {
                     setCurrentPage((prev) => prev + 1);
                 }

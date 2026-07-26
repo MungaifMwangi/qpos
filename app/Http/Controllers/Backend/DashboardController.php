@@ -3,74 +3,113 @@
 namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
-use App\Models\Blog;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Models\OrderProduct;
-use App\Models\OrderTransaction;
 use App\Models\Product;
-use App\Models\SupportTicket;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
     public function index(Request $request)
     {
-        $orders = Order::get();
-        // Calculate totals
+        $orders = Order::where('payment_status', '!=', 'voided')->get();
+
+        $totalRevenue = $orders->sum('total');
+        $totalSales = $orders->count();
+        $totalCustomers = Customer::count();
+        $lowStockCount = Product::where('status', 1)->where('quantity', '<=', 10)->count();
+
+        $startOfMonth = Carbon::now()->startOfMonth();
+        $lastMonthEnd = Carbon::now()->subMonth()->endOfMonth();
+        $lastMonthStart = Carbon::now()->subMonth()->startOfMonth();
+
+        $thisMonthRevenue = Order::where('payment_status', '!=', 'voided')
+            ->where('created_at', '>=', $startOfMonth)
+            ->sum('total');
+        $lastMonthRevenue = Order::where('payment_status', '!=', 'voided')
+            ->whereBetween('created_at', [$lastMonthStart, $lastMonthEnd])
+            ->sum('total');
+
+        $thisMonthSales = Order::where('payment_status', '!=', 'voided')
+            ->where('created_at', '>=', $startOfMonth)
+            ->count();
+        $lastMonthSales = Order::where('payment_status', '!=', 'voided')
+            ->whereBetween('created_at', [$lastMonthStart, $lastMonthEnd])
+            ->count();
+
+        $thisMonthCustomers = Customer::where('created_at', '>=', $startOfMonth)->count();
+
+        $revenueChange = $lastMonthRevenue > 0
+            ? round((($thisMonthRevenue - $lastMonthRevenue) / $lastMonthRevenue) * 100, 1)
+            : 0;
+        $salesChange = $lastMonthSales > 0
+            ? round((($thisMonthSales - $lastMonthSales) / $lastMonthSales) * 100, 1)
+            : 0;
+
+        $last7Days = collect();
+        for ($i = 6; $i >= 0; $i--) {
+            $day = Carbon::now()->subDays($i);
+            $last7Days->push([
+                'day' => $day->format('D'),
+                'date' => $day->format('Y-m-d'),
+            ]);
+        }
+
+        $dailySales = Order::where('payment_status', '!=', 'voided')
+            ->where('created_at', '>=', Carbon::now()->subDays(6)->startOfDay())
+            ->selectRaw('DATE(created_at) as date, SUM(total) as daily_total')
+            ->groupBy('date')
+            ->get()
+            ->keyBy('date');
+
+        $chartLabels = $last7Days->pluck('day')->toArray();
+        $chartData = $last7Days->map(function ($d) use ($dailySales) {
+            return $dailySales->get($d['date'], (object) ['daily_total' => 0])->daily_total ?? 0;
+        })->toArray();
+
+        $recentSales = Order::with('customer')
+            ->where('payment_status', '!=', 'voided')
+            ->latest()
+            ->take(5)
+            ->get();
+
+        $topProducts = OrderProduct::select(
+                'product_id',
+                DB::raw('SUM(order_products.quantity) as total_qty'),
+                DB::raw('SUM(order_products.total) as total_revenue')
+            )
+            ->join('products', 'order_products.product_id', '=', 'products.id')
+            ->join('orders', 'order_products.order_id', '=', 'orders.id')
+            ->where('orders.payment_status', '!=', 'voided')
+            ->groupBy('product_id')
+            ->orderByDesc('total_qty')
+            ->take(5)
+            ->get()
+            ->map(function ($item) {
+                $product = Product::find($item->product_id);
+                return [
+                    'name' => $product->name ?? 'Deleted Product',
+                    'quantity_sold' => number_format($item->total_qty, 2),
+                    'revenue' => number_format($item->total_revenue, 2),
+                ];
+            });
+
         $data = [
-            'sub_total' => $orders->sum('sub_total'),
-            'discount' => $orders->sum('discount'),
-            'total' => $orders->sum('total'),
-            'paid' => $orders->sum('paid'),
-            'due' => $orders->sum('due'),
-            'total_customer' => Customer::count(),
-            'total_order' => $orders->count(),
-            'total_product' => Product::count(),
-            'total_sale_item' => OrderProduct::sum('quantity'),
+            'totalRevenue' => number_format($totalRevenue, 2, '.', ','),
+            'totalSales' => $totalSales,
+            'totalCustomers' => $totalCustomers,
+            'lowStockCount' => $lowStockCount,
+            'revenueChange' => $revenueChange,
+            'salesChange' => $salesChange,
+            'newCustomersThisMonth' => $thisMonthCustomers,
+            'chartLabels' => $chartLabels,
+            'chartData' => $chartData,
+            'recentSales' => $recentSales,
+            'topProducts' => $topProducts,
         ];
-
-
-        $startDate = Carbon::now()->subDays(30)->format('Y-m-d');
-        $endDate = Carbon::now()->format('Y-m-d');
-        if($request->has('daterange')) {
-            $dates = explode(' to ', $request->query('daterange'));
-
-            if (count($dates) == 2) {
-                $startDate = Carbon::parse($dates[0])->format('Y-m-d');
-                $endDate = Carbon::parse($dates[1])->format('Y-m-d');
-            }
-        }
-        $dailyTotals = OrderTransaction::selectRaw('DATE(created_at) as date, SUM(amount) as total_amount')
-        ->whereBetween('created_at', [$startDate, $endDate])
-        ->groupBy('date')
-        ->orderBy('date', 'DESC')
-        ->get();
-        $dates = $dailyTotals->pluck('date')->toArray();
-        $totalAmounts = $dailyTotals->pluck('total_amount')->toArray();
-        $data['dates'] = $dates;
-        $data['totalAmounts'] = $totalAmounts;
-        $data['dateRange'] = 'from '. $startDate . ' to ' . $endDate;
-
-
-        $currentYear = now()->year;
-        $data['currentYear'] = $currentYear;
-
-        $salesData = OrderTransaction::selectRaw('DATE_FORMAT(created_at, "%Y-%m") as month, SUM(amount) as total_amount')
-        ->whereYear('created_at', $currentYear)
-        ->groupBy('month')
-        ->orderBy('month', 'ASC')->pluck('total_amount', 'month')->toArray();
-        $tempMonths = [];
-        $tempTotalAmountMonth = [];
-        for ($i = 1; $i <= 12; $i++) {
-            $monthKey = Carbon::create($currentYear, $i, 1)->format('Y-m');
-            $tempMonths[] = $monthKey;
-            $tempTotalAmountMonth[] = $salesData[$monthKey] ?? 0;
-        }
-
-        $data['months'] = $tempMonths;
-        $data['totalAmountMonth'] = $tempTotalAmountMonth;
 
         return view('backend.index', $data);
     }

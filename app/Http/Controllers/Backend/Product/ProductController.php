@@ -61,12 +61,6 @@ class ProductController extends Controller
                       <a class="dropdown-item" href="'.route('backend.admin.products.edit', $data->id). '">
                     <i class="fas fa-edit"></i> Edit
                 </a> <div class="dropdown-divider"></div>
-<form action="' . route('backend.admin.products.destroy', $data->id) . '"method="POST" style="display:inline;">
-                   ' . csrf_field() . '
-                    ' . method_field("DELETE") . '
-<button type="submit" class="dropdown-item" onclick="return confirm(\'Are you sure ?\')"><i class="fas fa-trash"></i> Delete</button>
-                  </form>
-<div class="dropdown-divider"></div>
   <a class="dropdown-item" href="' . route('backend.admin.purchase.create', ['barcode' => $data->sku]) . '">
                 <i class="fas fa-cart-plus"></i> Purchase
             </a>
