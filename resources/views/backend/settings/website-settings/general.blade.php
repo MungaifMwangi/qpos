@@ -642,12 +642,53 @@
                             <div class="alert alert-warning">
                                 <i class="fas fa-exclamation-triangle mr-1"></i>
                                 <strong>Warning:</strong> This will pull the latest changes from git, update dependencies,
-                                run migrations, and rebuild frontend assets. Make sure you have a backup before proceeding.
+                                run migrations, and rebuild frontend assets. A rollback point will be saved automatically.
                             </div>
                             <button type="button" class="btn bg-gradient-danger" id="applyUpdateBtn">
                                 <i class="fas fa-play-circle"></i> Pull &amp; Apply Update
                             </button>
                             <div id="applyResult" class="mt-3" style="display:none;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-12 mt-3" id="rollbackSection" style="display:none;">
+                    <div class="card card-outline card-secondary">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-undo"></i> Rollback to Previous Version
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-info mb-3">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                A rollback point was saved from a previous update.
+                                You can revert the system back to that version if the current update is causing issues.
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <strong>Rollback Version:</strong>
+                                    <span id="rollbackVersion" class="badge bg-secondary ml-1">...</span>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Commit:</strong>
+                                    <code id="rollbackCommit">...</code>
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <strong>Saved On:</strong>
+                                    <span id="rollbackDate">...</span>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Saved By:</strong>
+                                    <span id="rollbackUser">...</span>
+                                </div>
+                            </div>
+                            <button type="button" class="btn bg-gradient-secondary" id="rollbackBtn">
+                                <i class="fas fa-undo"></i> Rollback Now
+                            </button>
+                            <div id="rollbackResult" class="mt-3" style="display:none;"></div>
                         </div>
                     </div>
                 </div>
@@ -675,9 +716,11 @@
 
     // ── System Update JS ─────────────────────────────────────────
     $(function () {
-        var checkUrl  = "{{ route('backend.admin.settings.website.check.update') }}";
-        var applyUrl  = "{{ route('backend.admin.settings.website.apply.update') }}";
-        var csrfToken = "{{ csrf_token() }}";
+        var checkUrl   = "{{ route('backend.admin.settings.website.check.update') }}";
+        var applyUrl   = "{{ route('backend.admin.settings.website.apply.update') }}";
+        var backupUrl  = "{{ route('backend.admin.settings.website.backup.info') }}";
+        var rollbackUrl = "{{ route('backend.admin.settings.website.rollback.update') }}";
+        var csrfToken  = "{{ csrf_token() }}";
 
         function loadCurrentVersion() {
             $.ajax({
@@ -699,7 +742,26 @@
             });
         }
 
+        function loadBackupInfo() {
+            $.ajax({
+                url: backupUrl,
+                type: 'GET',
+                success: function (res) {
+                    if (res.available) {
+                        $('#rollbackVersion').text('v' + res.version);
+                        $('#rollbackCommit').text(res.commit ? res.commit.substring(0, 7) : 'N/A');
+                        $('#rollbackDate').text(res.saved_at || 'N/A');
+                        $('#rollbackUser').text(res.saved_by || 'N/A');
+                        $('#rollbackSection').fadeIn();
+                    } else {
+                        $('#rollbackSection').hide();
+                    }
+                }
+            });
+        }
+
         loadCurrentVersion();
+        loadBackupInfo();
 
         $('#checkUpdateBtn').on('click', function () {
             var btn = $(this).prop('disabled', true)
@@ -748,7 +810,7 @@
         $('#applyUpdateBtn').on('click', function () {
             Swal.fire({
                 title: 'Apply System Update?',
-                text: 'This will pull the latest code, install dependencies, run migrations, and rebuild assets.',
+                text: 'This will pull the latest code, install dependencies, run migrations, and rebuild assets. A rollback point will be saved.',
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#d33',
@@ -784,11 +846,12 @@
                             btn.prop('disabled', false)
                                .html('<i class="fas fa-play-circle"></i> Pull & Apply Update');
                             loadCurrentVersion();
+                            loadBackupInfo();
                             Swal.fire({
                                 icon: 'success',
                                 title: 'Update Complete',
-                                text: 'System updated to v' + res.version + '. Cache has been cleared.',
-                                timer: 5000,
+                                html: 'System updated to <strong>v' + res.version + '</strong>.<br>A rollback point was saved at <strong>v' + res.rollback_version + '</strong>.',
+                                timer: 6000,
                                 showConfirmButton: false,
                             });
                         },
@@ -802,6 +865,72 @@
                             ).fadeIn();
                             btn.prop('disabled', false)
                                .html('<i class="fas fa-play-circle"></i> Pull & Apply Update');
+                        }
+                    });
+                }
+            });
+        });
+
+        $('#rollbackBtn').on('click', function () {
+            Swal.fire({
+                title: 'Rollback System?',
+                html: 'This will revert the system to the previous version.<br><br>'
+                    + '<strong class="text-danger">Current code, dependencies, and assets will be overwritten.</strong><br>'
+                    + 'The latest database migration batch will also be rolled back.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Yes, rollback now!',
+                cancelButtonText: 'Cancel'
+            }).then(function (result) {
+                if (result.isConfirmed) {
+                    var btn = $('#rollbackBtn').prop('disabled', true)
+                                .html('<i class="fas fa-spinner fa-spin"></i> Rolling back...');
+                    $('#rollbackResult').hide();
+
+                    $.ajax({
+                        url: rollbackUrl,
+                        type: 'POST',
+                        data: { _token: csrfToken },
+                        success: function (res) {
+                            var logHtml = '<div class="alert alert-success">'
+                                        + '<i class="fas fa-check-circle mr-1"></i>'
+                                        + '<strong>Rollback complete!</strong> '
+                                        + 'System reverted to <strong>v' + res.version + '</strong> '
+                                        + '(<code>' + res.commit + '</code>).'
+                                        + '</div>'
+                                        + '<div class="card card-outline card-secondary mt-2">'
+                                        + '<div class="card-header py-1">'
+                                        + '<h6 class="card-title mb-0"><i class="fas fa-terminal mr-1"></i> Rollback Log</h6>'
+                                        + '</div>'
+                                        + '<div class="card-body p-2">'
+                                        + '<pre style="max-height:400px;overflow:auto;background:#1a1a2e;color:#e0e0e0;padding:12px;border-radius:6px;font-size:12px;margin:0;">'
+                                        + res.log.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                                        + '</pre></div></div>';
+                            $('#rollbackResult').html(logHtml).fadeIn();
+                            btn.prop('disabled', false)
+                               .html('<i class="fas fa-undo"></i> Rollback Now');
+                            loadCurrentVersion();
+                            loadBackupInfo();
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Rollback Complete',
+                                text: 'System reverted to v' + res.version + '. Cache has been cleared.',
+                                timer: 5000,
+                                showConfirmButton: false,
+                            });
+                        },
+                        error: function (xhr) {
+                            var msg = xhr.responseJSON ? xhr.responseJSON.message : 'Rollback failed. Check the error log.';
+                            $('#rollbackResult').html(
+                                '<div class="alert alert-danger mb-0">'
+                                + '<i class="fas fa-exclamation-triangle mr-1"></i>'
+                                + msg
+                                + '</div>'
+                            ).fadeIn();
+                            btn.prop('disabled', false)
+                               .html('<i class="fas fa-undo"></i> Rollback Now');
                         }
                     });
                 }

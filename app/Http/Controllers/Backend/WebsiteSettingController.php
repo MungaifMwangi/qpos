@@ -7,6 +7,7 @@ use App\Rules\ValidImageType;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Artisan;
 use App\Trait\FileHandler;
+use Illuminate\Support\Facades\File;
 
 class WebsiteSettingController extends Controller
 {
@@ -185,6 +186,27 @@ class WebsiteSettingController extends Controller
         $output = [];
         $exitCode = 0;
 
+        // ── Save current state BEFORE pulling (for rollback) ──────────
+        $currentHash = trim(shell_exec("git -C \"{$base}\" rev-parse HEAD 2>&1") ?? '');
+        $currentLog  = trim(shell_exec("git -C \"{$base}\" log -1 --pretty=format:'%s' 2>&1") ?? '');
+        $currentVersion = 'Unknown';
+        if (preg_match('/Version\s+([\d.]+)/i', $currentLog, $m)) {
+            $currentVersion = $m[1];
+        }
+
+        $backupPath = storage_path('app/update_backup.json');
+        File::put($backupPath, json_encode([
+            'commit'    => $currentHash,
+            'version'   => $currentVersion,
+            'message'   => $currentLog,
+            'saved_at'  => now()->toDateTimeString(),
+            'saved_by'  => auth()->user()->name ?? 'System',
+        ], JSON_PRETTY_PRINT));
+
+        $output[] = "==> Saving current version (v{$currentVersion}) for rollback...";
+        $output[] = "    Backup saved to storage/app/update_backup.json";
+        $output[] = '';
+
         // SAFETY: Only migrate (schema changes). NEVER run db:seed.
         // Seeders contain dummy/demo data that must not overwrite client data.
         $commands = [
@@ -205,6 +227,77 @@ class WebsiteSettingController extends Controller
             $output[] = implode("\n", $result);
             $output[] = '';
         }
+
+        $versionInfo = $this->getCurrentVersion();
+
+        return response()->json([
+            'success' => true,
+            'log'     => implode("\n", $output),
+            'version' => $versionInfo['version'],
+            'commit'  => $versionInfo['commit'],
+            'rollback_version' => $currentVersion,
+            'rollback_commit'  => substr($currentHash, 0, 7),
+        ]);
+    }
+
+    public function getBackupInfo()
+    {
+        abort_if(!auth()->user()->can('system_update_settings'), 403);
+
+        $backupPath = storage_path('app/update_backup.json');
+        if (!File::exists($backupPath)) {
+            return response()->json(['available' => false]);
+        }
+
+        $backup = json_decode(File::get($backupPath), true);
+        return response()->json(array_merge(['available' => true], $backup));
+    }
+
+    public function rollbackUpdate()
+    {
+        abort_if(!auth()->user()->can('system_update_settings'), 403);
+
+        $backupPath = storage_path('app/update_backup.json');
+        if (!File::exists($backupPath)) {
+            return response()->json(['message' => 'No rollback point found. Cannot roll back.'], 422);
+        }
+
+        $backup = json_decode(File::get($backupPath), true);
+        $targetCommit = $backup['commit'] ?? null;
+        $targetVersion = $backup['version'] ?? 'Unknown';
+
+        if (empty($targetCommit)) {
+            return response()->json(['message' => 'Backup file is corrupt. No commit hash found.'], 422);
+        }
+
+        $base = base_path();
+        $output = [];
+        $exitCode = 0;
+
+        $output[] = "==> Rolling back to v{$targetVersion} (commit {$targetCommit})...";
+        $output[] = '';
+
+        $commands = [
+            ['label' => 'Resetting code to previous version...',           'cmd' => "git -C \"{$base}\" reset --hard {$targetCommit} 2>&1"],
+            ['label' => 'Installing Composer dependencies for rolled-back version...', 'cmd' => "composer install --no-dev --optimize-autoloader --no-interaction 2>&1", 'workdir' => $base],
+            ['label' => 'Installing NPM dependencies...',                  'cmd' => "npm install --no-optional 2>&1", 'workdir' => $base],
+            ['label' => 'Building frontend assets...',                     'cmd' => "npm run build 2>&1", 'workdir' => $base],
+            ['label' => 'Rolling back database migrations...',             'cmd' => "php artisan migrate:rollback --force 2>&1", 'workdir' => $base],
+            ['label' => 'Clearing application cache...',                   'cmd' => "php artisan optimize:clear 2>&1", 'workdir' => $base],
+            ['label' => 'Resetting permission cache...',                   'cmd' => "php artisan permission:cache-reset 2>&1", 'workdir' => $base],
+        ];
+
+        foreach ($commands as $step) {
+            $output[] = "==> {$step['label']}";
+            $workdir = $step['workdir'] ?? $base;
+            $result = [];
+            exec("cd \"{$workdir}\" && {$step['cmd']}", $result, $exitCode);
+            $output[] = implode("\n", $result);
+            $output[] = '';
+        }
+
+        // Remove the backup file after successful rollback
+        File::delete($backupPath);
 
         $versionInfo = $this->getCurrentVersion();
 

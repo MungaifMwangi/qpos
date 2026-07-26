@@ -169,6 +169,8 @@ Route::prefix('admin')->as('backend.admin.')->middleware(['admin'])->group(funct
 
                 Route::get('check-update', 'checkForUpdate')->name('settings.website.check.update');
                 Route::post('apply-update', 'applyUpdate')->name('settings.website.apply.update');
+                Route::get('backup-info', 'getBackupInfo')->name('settings.website.backup.info');
+                Route::post('rollback-update', 'rollbackUpdate')->name('settings.website.rollback.update');
             });
 
             Route::controller(RoleController::class)->prefix('roles')->group(function () {
