@@ -85,6 +85,7 @@ class PosService
                 'status' => $orderStatus,
                 'payment_method' => $paymentMethod,
                 'payment_status' => $paymentStatus,
+                'mpesa_code' => $orderData['mpesa_code'] ?? null,
             ]);
 
             // Save Cart Line Items and update inventory

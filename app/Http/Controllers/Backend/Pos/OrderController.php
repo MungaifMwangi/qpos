@@ -111,6 +111,7 @@ class OrderController extends Controller
             'payment_method' => 'nullable|in:cash,stk_push,debtor',
             'tax_mode' => 'nullable|in:inclusive,exclusive',
             'customer_phone' => 'nullable|string',
+            'mpesa_code' => 'nullable|string|max:255',
             'order_discount' => 'nullable|numeric|min:0',
             'paid' => 'nullable|numeric|min:0',
         ]);
@@ -146,7 +147,8 @@ class OrderController extends Controller
                 'paid' => floatval($request->paid ?? $total),
                 'due' => max(0, $total - floatval($request->paid ?? $total)),
                 'payment_method' => $paymentMethod,
-                'tax_mode' => $request->tax_mode ?? 'inclusive',
+                'tax_mode' => $request->tax_mode ?? 'exclusive',
+                'mpesa_code' => $request->mpesa_code,
                 'note' => $request->note ?? null,
             ], $cartItems, $request->customer_phone);
 

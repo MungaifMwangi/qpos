@@ -52,6 +52,7 @@
                       <th>Total {{currency()->symbol??''}}</th>
                       <th>Paid {{currency()->symbol??''}}</th>
                       <th>Due {{currency()->symbol??''}}</th>
+                      <th>M-Pesa Code</th>
                       <th>Status</th>
                     </tr>
                   </thead>
@@ -68,6 +69,7 @@
                       <td>{{number_format($order->total,2,'.',',')}}</td>
                       <td>{{number_format($order->paid,2,'.',',')}}</td>
                       <td>{{number_format($order->due,2,'.',',')}}</td>
+                      <td>{{ $order->mpesa_code ?? '-' }}</td>
                       <td>
                         @if ($order->status)
                         Paid
@@ -78,7 +80,7 @@
                     </tr>
                     @empty
                     <tr>
-                      <td colspan="7" class="text-center">No sells found.</td>
+                      <td colspan="8" class="text-center">No sells found.</td>
                     </tr>
                     @endforelse
                   </tbody>

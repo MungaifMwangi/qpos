@@ -33,8 +33,8 @@ export default function Pos() {
     const [updateTotal, setUpdateTotal] = useState(0);
     const [customerId, setCustomerId] = useState();
     const [paymentMethod, setPaymentMethod] = useState("cash");
-    const [customerPhone, setCustomerPhone] = useState("");
-    const [taxMode, setTaxMode] = useState("inclusive");
+    const [mpesaCode, setMpesaCode] = useState("");
+    const [taxMode, setTaxMode] = useState("exclusive");
     const [cartUpdated, setCartUpdated] = useState(false);
     const [productUpdated, setProductUpdated] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
@@ -215,8 +215,8 @@ export default function Pos() {
             toast.error("Select a registered customer for a credit sale.");
             return;
         }
-        if (paymentMethod === "stk_push" && !customerPhone) {
-            toast.error("Enter the M-Pesa phone number.");
+        if (paymentMethod === "stk_push" && !mpesaCode) {
+            toast.error("Enter the M-Pesa transaction code.");
             return;
         }
         const balanceLine =
@@ -242,7 +242,8 @@ export default function Pos() {
                         order_discount: parseFloat(orderDiscount) || 0,
                         paid: parseFloat(paid) || 0,
                         payment_method: paymentMethod,
-                        customer_phone: customerPhone,
+                        customer_phone: mpesaCode,
+                        mpesa_code: mpesaCode,
                         tax_mode: taxMode,
                     })
                     .then((res) => {
@@ -334,7 +335,7 @@ export default function Pos() {
                                             </select>
                                         </div>
                                     </div>
-                                    {paymentMethod === "stk_push" && <div className="row text-bold mb-1"><div className="col">M-Pesa Phone:</div><div className="col text-right mr-2"><input type="tel" className="form-control form-control-sm" placeholder="0712 345 678" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} /></div></div>}
+                                    {paymentMethod === "stk_push" && <div className="row text-bold mb-1"><div className="col">M-Pesa Code:</div><div className="col text-right mr-2"><input type="text" className="form-control form-control-sm" placeholder="e.g. QJH7B3K9XY" value={mpesaCode} onChange={(e) => setMpesaCode(e.target.value)} /></div></div>}
                                     <div className="row text-bold mb-1">
                                         <div className="col">Discount:</div>
                                         <div className="col text-right mr-2">
