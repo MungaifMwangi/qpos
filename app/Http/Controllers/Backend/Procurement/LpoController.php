@@ -30,15 +30,28 @@ class LpoController extends Controller
         abort_if(!auth()->user()->can('lpo_view'), 403);
 
         if ($request->ajax()) {
-            $lpos = Lpo::with('supplier')->orderBy('id', 'desc')->get();
+            $query = Lpo::with('supplier');
+
+            if ($request->filled('status')) {
+                $query->where('status', $request->status);
+            }
+
+            if ($request->filled('from')) {
+                $query->whereDate('created_at', '>=', $request->from);
+            }
+
+            if ($request->filled('to')) {
+                $query->whereDate('created_at', '<=', $request->to);
+            }
+
+            $lpos = $query->orderBy('id', 'desc');
 
             return DataTables::of($lpos)
                 ->addIndexColumn()
                 ->addColumn('lpo_number', fn($d) => '<strong>' . $d->lpo_number . '</strong>')
                 ->addColumn('supplier',   fn($d) => $d->supplier->name ?? '-')
-                ->addColumn('total_amount', fn($d) =>
-                    number_format($d->total_amount, 2))
-                ->addColumn('date', fn($d) => optional($d->issued_at)->format('d M Y') ?? '-')
+                ->addColumn('total_amount', fn($d) => number_format($d->total_amount, 2))
+                ->addColumn('date', fn($d) => \Carbon\Carbon::parse($d->created_at)->format('d M, Y'))
                 ->addColumn('status', function ($d) {
                     $map = [
                         'requisition'    => ['secondary', 'Requisition'],

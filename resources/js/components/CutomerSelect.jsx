@@ -46,9 +46,14 @@ const CustomerSelect = ({ setCustomerId }) => {
             isClearable
             options={customers}
             onChange={handleChange}
-            onCreateOption={handleCreateCustomer} // Handle creating a new customer
+            onCreateOption={handleCreateCustomer}
             value={selectedCustomer}
             placeholder="Select or create customer"
+            menuPortalTarget={document.body}
+            styles={{
+                menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                menu: (base) => ({ ...base, zIndex: 9999 }),
+            }}
         />
     );
 };

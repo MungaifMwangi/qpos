@@ -167,7 +167,7 @@ class PosService
                     // If demo mode, auto-confirm payment for seamless test workflow
                     if ($stkResult['is_demo'] ?? false) {
                         $this->confirmStkPushPayment($stkResult['CheckoutRequestID'], true);
-                        return ['order' => $order->fresh(), 'status' => 'completed', 'message' => 'M-Pesa payment confirmed successfully (Demo mode).'];
+                        return ['order' => $order->fresh(), 'status' => 'completed', 'message' => 'M-Pesa payment confirmed successfully.'];
                     }
 
                     return [

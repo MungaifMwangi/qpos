@@ -16,35 +16,74 @@ class ReportController extends Controller
 
     public function saleReport(Request $request)
     {
+        abort_if(!auth()->user()->can('reports_sales'), 403);
 
-        abort_if(!auth()->user()->can(abilities: 'reports_sales'), 403);
-        // Get user input or set default values
-        $start_date_input = $request->input('start_date', Carbon::today()->subDays(29)->format('Y-m-d'));
-        $end_date_input = $request->input('end_date', Carbon::today()->format('Y-m-d'));
+        if ($request->ajax()) {
+            $query = Order::with('customer');
 
-        // Parse and set start date
-        $start_date = Carbon::createFromFormat('Y-m-d', $start_date_input) ?: Carbon::today()->subDays(29)->startOfDay();
-        $start_date = $start_date->startOfDay();
+            if ($request->filled('status')) {
+                $query->where('payment_status', $request->status);
+            }
 
-        // Parse and set end date
-        $end_date = Carbon::createFromFormat('Y-m-d', $end_date_input) ?: Carbon::today()->endOfDay();
-        $end_date = $end_date->endOfDay();
-        // Retrieve orders within the date range
-        $orders = Order::whereBetween('created_at', [$start_date, $end_date])->with('customer')->get();
+            if ($request->filled('from')) {
+                $query->whereDate('created_at', '>=', $request->from);
+            }
 
-        // Calculate totals
-        $data = [
-            'orders' => $orders,
-            'sub_total' => $orders->sum('sub_total'),
-            'discount' => $orders->sum('discount'),
-            'paid' => $orders->sum('paid'),
-            'due' => $orders->sum('due'),
-            'total' => $orders->sum('total'),
-            'start_date' => $start_date->format('M d, Y'),
-            'end_date' => $end_date->format('M d, Y'),
-        ];
+            if ($request->filled('to')) {
+                $query->whereDate('created_at', '<=', $request->to);
+            }
 
-        return view('backend.reports.sale-report', $data);
+            $orders = $query->orderBy('id', 'desc');
+
+            return DataTables::of($orders)
+                ->addIndexColumn()
+                ->addColumn('saleId', fn($data) => '#' . $data->id)
+                ->addColumn('customer', fn($data) => $data->customer->name ?? '-')
+                ->addColumn('item', fn($data) => $data->total_item)
+                ->addColumn('date', fn($data) => \Carbon\Carbon::parse($data->created_at)->format('d M, Y'))
+                ->addColumn('sub_total', fn($data) => number_format($data->sub_total, 2, '.', ','))
+                ->addColumn('discount', fn($data) => number_format($data->discount, 2, '.', ','))
+                ->addColumn('total', fn($data) => number_format($data->total, 2, '.', ','))
+                ->addColumn('paid', fn($data) => number_format($data->paid, 2, '.', ','))
+                ->addColumn('due', fn($data) => number_format($data->due, 2, '.', ','))
+                ->addColumn('mpesa_code', fn($data) => $data->mpesa_code ?? '-')
+                ->addColumn('status', function ($data) {
+                    if ($data->payment_status === 'voided') {
+                        return '<span class="badge" style="background:#343a40;color:#fff;padding:4px 10px;border-radius:6px;font-size:11px">Voided</span>';
+                    }
+                    if ($data->payment_status === 'paid' || $data->status) {
+                        return '<span class="badge" style="background:#d4edda;color:#155724;padding:4px 10px;border-radius:6px;font-size:11px">Paid</span>';
+                    }
+                    if ($data->payment_status === 'pending') {
+                        return '<span class="badge" style="background:#fff3cd;color:#856404;padding:4px 10px;border-radius:6px;font-size:11px">Pending</span>';
+                    }
+                    return '<span class="badge" style="background:#f8d7da;color:#721c24;padding:4px 10px;border-radius:6px;font-size:11px">Due</span>';
+                })
+                ->rawColumns(['status'])
+                ->toJson();
+        }
+
+        $kpiQuery = Order::query();
+
+        if ($request->filled('status')) {
+            $kpiQuery->where('payment_status', $request->status);
+        }
+        if ($request->filled('from')) {
+            $kpiQuery->whereDate('created_at', '>=', $request->from);
+        }
+        if ($request->filled('to')) {
+            $kpiQuery->whereDate('created_at', '<=', $request->to);
+        }
+
+        $kpiOrders = $kpiQuery->get();
+        $totalSales = $kpiOrders->count();
+        $totalRevenue = $kpiOrders->sum('total');
+        $totalPaid = $kpiOrders->sum('paid');
+        $totalDue = $kpiOrders->sum('due');
+
+        return view('backend.reports.sale-report', compact(
+            'totalSales', 'totalRevenue', 'totalPaid', 'totalDue'
+        ));
     }
     public function saleSummery(Request $request)
     {

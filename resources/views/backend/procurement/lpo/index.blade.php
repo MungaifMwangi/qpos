@@ -1,50 +1,80 @@
 @extends('backend.master')
-@section('title', 'LPO Procurement')
+@section('title', ' ')
 
 @section('content')
-<div class="card">
-
-    <div class="mt-n5 mb-3 d-flex justify-content-end">
+<div class="page-header" style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+    <div style="display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,#e67e22,#f39c12);color:#fff;font-size:18px;flex-shrink:0">
+        <i class="fas fa-file-alt"></i>
+    </div>
+    <div>
+        <h2 style="margin:0;font-size:20px;font-weight:700;color:#303030">LPO Procurement</h2>
+        <p style="margin:0;font-size:12px;color:#999">Manage Local Purchase Orders and track goods delivery</p>
+    </div>
+    <div style="margin-left:auto">
         @can('lpo_create')
-        <a href="{{ route('backend.admin.lpo.create') }}" class="btn bg-gradient-primary">
-            <i class="fas fa-plus-circle"></i> New LPO Requisition
+        <a href="{{ route('backend.admin.lpo.create') }}" class="btn btn-sm" style="background:#2d2d2d;color:#fff;border-radius:8px;padding:6px 16px;font-weight:600">
+            <i class="fas fa-plus-circle mr-1"></i> New LPO
         </a>
         @endcan
     </div>
+</div>
 
-    @if(session('success'))
-        <div class="alert alert-success alert-dismissible fade show mx-3">
-            <i class="fas fa-check-circle"></i> {{ session('success') }}
-            <button type="button" class="close" data-dismiss="alert">&times;</button>
-        </div>
-    @endif
-    @if(session('error'))
-        <div class="alert alert-danger alert-dismissible fade show mx-3">
-            <i class="fas fa-exclamation-triangle"></i> {{ session('error') }}
-            <button type="button" class="close" data-dismiss="alert">&times;</button>
-        </div>
-    @endif
+@if(session('success'))
+    <div class="alert alert-success alert-dismissible fade show" style="border-radius:10px;margin-bottom:16px">
+        <i class="fas fa-check-circle mr-1"></i> {{ session('success') }}
+        <button type="button" class="close" data-dismiss="alert">&times;</button>
+    </div>
+@endif
+@if(session('error'))
+    <div class="alert alert-danger alert-dismissible fade show" style="border-radius:10px;margin-bottom:16px">
+        <i class="fas fa-exclamation-triangle mr-1"></i> {{ session('error') }}
+        <button type="button" class="close" data-dismiss="alert">&times;</button>
+    </div>
+@endif
 
-    <div class="card-body p-2 p-md-4 pt-0">
-        <div class="row g-4">
-            <div class="col-md-12">
-                <div class="card-body table-responsive p-0">
-                    <table id="lpoTable" class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th data-orderable="false">#</th>
-                                <th>LPO Number</th>
-                                <th>Supplier</th>
-                                <th class="text-right">Total ({{ currency()->symbol ?? 'KES' }})</th>
-                                <th>Date</th>
-                                <th>Status</th>
-                                <th data-orderable="false">Actions</th>
-                            </tr>
-                        </thead>
-                    </table>
-                </div>
-            </div>
-        </div>
+<div class="filter-bar" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px;padding:12px 16px;background:#fff;border:1px solid #e8e8e8;border-radius:12px">
+    <label style="font-size:13px;font-weight:600">Status:</label>
+    <select id="filterStatus" class="form-control form-control-sm" style="width:180px;border-radius:8px">
+        <option value="">All</option>
+        <option value="requisition">Requisition</option>
+        <option value="issued">Issued</option>
+        <option value="goods_received">Goods Received</option>
+        <option value="invoice_matched">Invoice Matched</option>
+        <option value="posted">Posted to AP</option>
+    </select>
+
+    <label style="font-size:13px;font-weight:600">Date From:</label>
+    <input type="date" id="filterFrom" class="form-control form-control-sm" style="width:150px;border-radius:8px">
+
+    <label style="font-size:13px;font-weight:600">Date To:</label>
+    <input type="date" id="filterTo" class="form-control form-control-sm" style="width:150px;border-radius:8px">
+
+    <button id="applyFilter" class="btn btn-sm" style="background:#2d2d2d;color:#fff;border-radius:8px;padding:6px 16px;font-weight:600">
+        Apply
+    </button>
+    <button id="resetFilter" class="btn btn-sm" style="background:#f5f5f5;color:#666;border:1px solid #e0e0e0;border-radius:8px;padding:6px 12px;font-weight:600">
+        Reset
+    </button>
+</div>
+
+<div style="background:#fff;border:1px solid #e8e8e8;border-radius:14px;overflow:hidden">
+    <div style="padding:16px 20px 8px">
+        <h6 style="margin:0;font-weight:700;color:#303030;font-size:13px">All LPOs</h6>
+    </div>
+    <div style="padding:0 8px 8px">
+        <table id="lpoTable" class="table table-hover" style="margin:0">
+            <thead>
+                <tr>
+                    <th style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">#</th>
+                    <th style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">LPO Number</th>
+                    <th style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Supplier</th>
+                    <th style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px" class="text-right">Total</th>
+                    <th style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Date</th>
+                    <th style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Status</th>
+                    <th style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px" class="text-center">Actions</th>
+                </tr>
+            </thead>
+        </table>
     </div>
 </div>
 
@@ -70,13 +100,11 @@
                         Partial deliveries are supported.
                     </p>
 
-                    {{-- Spinner shown while loading items --}}
                     <div id="grnLoading" class="text-center py-4">
                         <i class="fas fa-spinner fa-spin fa-2x text-warning"></i>
                         <p class="mt-2 text-muted">Loading order lines…</p>
                     </div>
 
-                    {{-- Table rendered by JS --}}
                     <div id="grnItemsWrap" class="table-responsive d-none">
                         <table class="table table-bordered table-sm">
                             <thead class="thead-light">
@@ -117,26 +145,41 @@
     'use strict';
 
     var currentLpoId = null;
-    var itemsUrl     = "{{ url('admin/lpo') }}";   // base; appended: /{id}/items
-    var grnBaseUrl   = "{{ url('admin/lpo') }}";   // base; appended: /{id}/grn
+    var itemsUrl     = "{{ url('admin/lpo') }}";
+    var grnBaseUrl   = "{{ url('admin/lpo') }}";
     var csrfToken    = "{{ csrf_token() }}";
 
-    // ── DataTable ─────────────────────────────────────────────────
     var table = $('#lpoTable').DataTable({
         processing: true,
         serverSide: true,
         ordering:   true,
-        order:      [[1, 'desc']],
-        ajax: { url: "{{ route('backend.admin.lpo.index') }}" },
+        order:      [[4, 'desc']],
+        ajax: {
+            url: "{{ route('backend.admin.lpo.index') }}",
+            data: function (d) {
+                d.status = $('#filterStatus').val();
+                d.from   = $('#filterFrom').val();
+                d.to     = $('#filterTo').val();
+            }
+        },
         columns: [
             { data: 'DT_RowIndex',   name: 'DT_RowIndex',   orderable: false, searchable: false },
             { data: 'lpo_number',    name: 'lpo_number' },
             { data: 'supplier',      name: 'supplier.name' },
             { data: 'total_amount',  name: 'total_amount',  className: 'text-right' },
-            { data: 'date',          name: 'issued_at' },
-            { data: 'status',        name: 'status' },
-            { data: 'action',        name: 'action',        orderable: false, searchable: false }
+            { data: 'date',          name: 'created_at' },
+            { data: 'status',        name: 'status',        orderable: false, searchable: false },
+            { data: 'action',        name: 'action',        orderable: false, searchable: false, className: 'text-center' }
         ]
+    });
+
+    $('#applyFilter').on('click', function () { table.ajax.reload(); });
+
+    $('#resetFilter').on('click', function () {
+        $('#filterStatus').val('');
+        $('#filterFrom').val('');
+        $('#filterTo').val('');
+        table.ajax.reload();
     });
 
     // ── Open GRN modal ────────────────────────────────────────────
@@ -144,7 +187,6 @@
         currentLpoId = $(this).data('id');
         var lpoNum   = $(this).data('lpo');
 
-        // Reset modal state
         $('#grnLpoNumber').text(lpoNum);
         $('#grnItemsBody').empty();
         $('#grnItemsWrap').addClass('d-none');
@@ -153,7 +195,6 @@
         $('#grnSubmitBtn').prop('disabled', true);
         $('#grnModal').modal('show');
 
-        // Fetch LPO line items via AJAX
         $.ajax({
             url:  itemsUrl + '/' + currentLpoId + '/items',
             type: 'GET',
@@ -201,7 +242,6 @@
         var btn = $('#grnSubmitBtn').prop('disabled', true)
                     .html('<i class="fas fa-spinner fa-spin"></i> Saving…');
 
-        // Collect form data
         var payload = {
             _token:    csrfToken,
             grn_notes: $('#grnNotes').val(),
@@ -218,7 +258,7 @@
             url:         grnBaseUrl + '/' + currentLpoId + '/grn',
             type:        'POST',
             data:        payload,
-            traditional: true,   // send arrays as PHP expects
+            traditional: true,
             success: function (res) {
                 $('#grnModal').modal('hide');
                 Swal.fire({

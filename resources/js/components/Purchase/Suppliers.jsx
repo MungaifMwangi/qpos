@@ -85,6 +85,11 @@ const Suppliers = ({ setSupplierId,oldSupplier }) => {
                 value={selectedSupplier}
                 placeholder="Select supplier"
                 required
+                menuPortalTarget={document.body}
+                styles={{
+                    menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                    menu: (base) => ({ ...base, zIndex: 9999 }),
+                }}
             />
             
             {/* <button

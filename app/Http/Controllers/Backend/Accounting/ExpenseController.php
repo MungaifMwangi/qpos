@@ -28,7 +28,25 @@ class ExpenseController extends Controller
         abort_if(!auth()->user()->can('expense_view'), 403);
 
         if ($request->ajax()) {
-            $expenses = Expense::with('user')->latest()->get();
+            $query = Expense::with('user');
+
+            if ($request->filled('category')) {
+                $categoryKey = array_search($request->category, self::$categories);
+                if ($categoryKey !== false) {
+                    $query->where('category', $categoryKey);
+                }
+            }
+
+            if ($request->filled('from')) {
+                $query->whereDate('expense_date', '>=', $request->from);
+            }
+
+            if ($request->filled('to')) {
+                $query->whereDate('expense_date', '<=', $request->to);
+            }
+
+            $expenses = $query->latest('expense_date');
+
             return DataTables::of($expenses)
                 ->addIndexColumn()
                 ->addColumn('title', fn($data) => $data->title)

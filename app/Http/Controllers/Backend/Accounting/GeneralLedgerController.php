@@ -23,7 +23,22 @@ class GeneralLedgerController extends Controller
         abort_if(!auth()->user()->can('general_ledger_view'), 403);
 
         if ($request->ajax()) {
-            $entries = JournalEntry::with(['lines.account', 'user'])->orderBy('id', 'desc')->get();
+            $query = JournalEntry::with(['lines.account', 'user']);
+
+            if ($request->filled('status')) {
+                $query->where('status', $request->status);
+            }
+
+            if ($request->filled('from')) {
+                $query->whereDate('entry_date', '>=', $request->from);
+            }
+
+            if ($request->filled('to')) {
+                $query->whereDate('entry_date', '<=', $request->to);
+            }
+
+            $entries = $query->orderBy('id', 'desc');
+
             return DataTables::of($entries)
                 ->addIndexColumn()
                 ->addColumn('entry_number', fn($data) => '<strong>' . $data->entry_number . '</strong>')

@@ -1,12 +1,11 @@
 @extends('backend.master')
-
-@section('title', 'Product Purchase')
+@section('title', ' ')
 
 @section('content')
-</div>
-<section class="content-header" id="purchase">
+<section id="purchase">
 </section>
 @endsection
+
 @push('style')
 <style>
   .react-datepicker-wrapper {
@@ -14,8 +13,4 @@
     box-sizing: border-box;
   }
 </style>
-@endpush
-@push('script')
-<script>
-</script>
 @endpush

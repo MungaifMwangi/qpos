@@ -20,38 +20,38 @@ class PurchaseController extends Controller
      */
     public function index(Request $request)
     {
-
         abort_if(!auth()->user()->can('purchase_view'), 403);
+
         if ($request->ajax()) {
-            $purchases = Purchase::with('supplier')->latest()->get();
+            $query = Purchase::with('supplier');
+
+            if ($request->filled('from')) {
+                $query->whereDate('date', '>=', $request->from);
+            }
+
+            if ($request->filled('to')) {
+                $query->whereDate('date', '<=', $request->to);
+            }
+
+            $purchases = $query->latest();
+
             return DataTables::of($purchases)
                 ->addIndexColumn()
-                ->addColumn('supplier', fn($data) => $data->supplier->name)
-                ->addColumn('id', function ($data) {
-                    return '#' . $data->id;
-                })
-                ->addColumn('total', fn($data) => $data->grand_total)
-                ->addColumn('created_at', fn($data) => \Carbon\Carbon::parse($data->date)->format('d M, Y')) // Using Carbon for formatting
+                ->addColumn('supplier', fn($data) => $data->supplier->name ?? '-')
+                ->addColumn('id', fn($data) => '#' . $data->id)
+                ->addColumn('total', fn($data) => number_format($data->grand_total, 2, '.', ','))
+                ->addColumn('created_at', fn($data) => \Carbon\Carbon::parse($data->date)->format('d M, Y'))
                 ->addColumn('action', function ($data) {
-                    return '<div class="btn-group">
-                    <button type="button" class="btn bg-gradient-primary btn-flat">Action</button>
-                    <button type="button" class="btn bg-gradient-primary btn-flat dropdown-toggle dropdown-icon" data-toggle="dropdown" aria-expanded="false">
-                      <span class="sr-only">Toggle Dropdown</span>
-                    </button>
-                    <div class="dropdown-menu" role="menu">
-                      <a class="dropdown-item" href="' . route('backend.admin.purchase.create', ['purchase_id' => $data->id]) . '">
-                    <i class="fas fa-edit"></i> Edit
-                </a> 
-  <a class="dropdown-item" href="' . route('backend.admin.purchase.products', $data->id) . '">
-                <i class="fas fa-eye"></i> View
-            </a>
-                    </div>
-                  </div>';
+                    $editUrl = route('backend.admin.purchase.create', ['purchase_id' => $data->id]);
+                    $viewUrl = route('backend.admin.purchase.products', $data->id);
+                    return '<div style="display:flex;gap:6px;justify-content:center">'
+                        . '<a href="' . $editUrl . '" title="Edit" style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:#eef2ff;color:#4f46e5;font-size:12px"><i class="fas fa-pen"></i></a>'
+                        . '<a href="' . $viewUrl . '" title="View Items" style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:#ecfdf5;color:#059669;font-size:12px"><i class="fas fa-eye"></i></a>'
+                        . '</div>';
                 })
                 ->rawColumns(['supplier', 'id', 'total', 'created_at', 'action'])
                 ->toJson();
         }
-
 
         return view('backend.purchase.index');
     }

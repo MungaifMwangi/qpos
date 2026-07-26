@@ -1,148 +1,128 @@
 @extends('backend.master')
-
-@section('title', 'Sale Report')
+@section('title', ' ')
 
 @section('content')
-<div class="card">
-  <div class="mt-n5 mb-3 d-flex justify-content-end">
-    <div class="form-group">
-      <div class="input-group">
-        <button type="button" class="btn btn-default float-right" id="daterange-btn">
-          <i class="far fa-calendar-alt"></i> Filter by date
-          <i class="fas fa-caret-down"></i>
-        </button>
-      </div>
+<div class="page-header" style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+    <div style="display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,#1a7a4e,#28a745);color:#fff;font-size:18px;flex-shrink:0">
+        <i class="fas fa-file-invoice"></i>
     </div>
-  </div>
-  <div class="card-body p-2 p-md-4 pt-0">
-    <div class="row g-4">
-      <div class="col-md-12">
-        <div class="card-body p-0">
-          <section class="invoice">
-            <!-- info row -->
-            <div class="row invoice-info">
-              <div class="col-sm-4">
-              </div>
-              <!-- /.col -->
-              <div class="col-sm-4">
-                <address>
-                  <strong>Sale Report ({{$start_date}} - {{$end_date}})</strong><br>
-                </address>
-              </div>
-              <!-- /.col -->
-              <div class="col-sm-2">
-              </div>
-              <!-- /.col -->
-            </div>
-            <!-- /.row -->
+    <div>
+        <h2 style="margin:0;font-size:20px;font-weight:700;color:#303030">Sales Report</h2>
+        <p style="margin:0;font-size:12px;color:#999">Detailed view of all sales transactions with filters</p>
+    </div>
+</div>
 
-            <!-- Table row -->
-            <div class="row justify-content-center">
-              <div class="col-12">
-                <table id="datatables" class="table table-hover">
-                  <thead>
-                    <tr>
-                      <th data-orderable="false">#</th>
-                      <th>SaleId</th>
-                      <th>Customer</th>
-                      <th>Date</th>
-                      <th>Item</th>
-                      <th>Sub Total {{currency()->symbol??''}}</th>
-                      <th>Discount {{currency()->symbol??''}}</th>
-                      <th>Total {{currency()->symbol??''}}</th>
-                      <th>Paid {{currency()->symbol??''}}</th>
-                      <th>Due {{currency()->symbol??''}}</th>
-                      <th>M-Pesa Code</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @forelse($orders as $index => $order)
-                    <tr>
-                      <td>{{ $index + 1 }}</td>
-                      <td>#{{$order->id}}</td>
-                      <td>{{ $order->customer->name ?? '-' }}</td>
-                      <td>{{ $order->created_at->format('d-m-Y') }}</td>
-                      <td>{{$order->total_item}}</td>
-                      <td>{{number_format($order->sub_total,2,'.',',')}}</td>
-                      <td>{{number_format($order->discount,2,'.',',')}}</td>
-                      <td>{{number_format($order->total,2,'.',',')}}</td>
-                      <td>{{number_format($order->paid,2,'.',',')}}</td>
-                      <td>{{number_format($order->due,2,'.',',')}}</td>
-                      <td>{{ $order->mpesa_code ?? '-' }}</td>
-                      <td>
-                        @if ($order->status)
-                        Paid
-                        @else
-                        Due
-                        @endif
-                      </td>
-                    </tr>
-                    @empty
-                    <tr>
-                      <td colspan="8" class="text-center">No sells found.</td>
-                    </tr>
-                    @endforelse
-                  </tbody>
-                </table>
-              </div>
-              <!-- /.col -->
-            </div>
-            <!-- /.row -->
-            <div class="row no-print">
-              <div class="col-12">
-                <button type="button" onclick="window.print()" class="btn btn-success float-right"><i class="fas fa-print"></i> Print</a>
-                </button>
-              </div>
-            </div>
-            <!-- /.row -->
-          </section>
-        </div>
-      </div>
+<div class="kpi-row" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px">
+    <div style="background:#fff;border:1px solid #e8e8e8;border-radius:12px;padding:16px 18px;text-align:center">
+        <div style="font-size:22px;font-weight:800;color:#1a7a4e">{{ number_format($totalSales) }}</div>
+        <div style="font-size:11px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.5px;margin-top:4px">Total Sales</div>
     </div>
-  </div>
+    <div style="background:#fff;border:1px solid #e8e8e8;border-radius:12px;padding:16px 18px;text-align:center">
+        <div style="font-size:22px;font-weight:800;color:#2d6a4f">KES {{ number_format($totalRevenue, 2) }}</div>
+        <div style="font-size:11px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.5px;margin-top:4px">Total Revenue</div>
+    </div>
+    <div style="background:#fff;border:1px solid #e8e8e8;border-radius:12px;padding:16px 18px;text-align:center">
+        <div style="font-size:22px;font-weight:800;color:#52796f">KES {{ number_format($totalPaid, 2) }}</div>
+        <div style="font-size:11px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.5px;margin-top:4px">Total Paid</div>
+    </div>
+    <div style="background:#fff;border:1px solid #e8e8e8;border-radius:12px;padding:16px 18px;text-align:center">
+        <div style="font-size:22px;font-weight:800;color:#b07d62">KES {{ number_format($totalDue, 2) }}</div>
+        <div style="font-size:11px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.5px;margin-top:4px">Total Due</div>
+    </div>
+</div>
+
+<div class="filter-bar" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px;padding:12px 16px;background:#fff;border:1px solid #e8e8e8;border-radius:12px">
+    <label style="font-size:13px;font-weight:600">Status:</label>
+    <select id="filterStatus" class="form-control form-control-sm" style="width:160px;border-radius:8px">
+        <option value="">All</option>
+        <option value="paid">Paid</option>
+        <option value="pending">Pending</option>
+    </select>
+
+    <label style="font-size:13px;font-weight:600">Date From:</label>
+    <input type="date" id="filterFrom" class="form-control form-control-sm" style="width:150px;border-radius:8px">
+
+    <label style="font-size:13px;font-weight:600">Date To:</label>
+    <input type="date" id="filterTo" class="form-control form-control-sm" style="width:150px;border-radius:8px">
+
+    <button id="applyFilter" class="btn btn-sm" style="background:#2d2d2d;color:#fff;border-radius:8px;padding:6px 16px;font-weight:600">
+        Apply
+    </button>
+    <button id="resetFilter" class="btn btn-sm" style="background:#f5f5f5;color:#666;border:1px solid #e0e0e0;border-radius:8px;padding:6px 12px;font-weight:600">
+        Reset
+    </button>
+</div>
+
+<div style="background:#fff;border:1px solid #e8e8e8;border-radius:14px;overflow:hidden">
+    <div style="padding:16px 20px 8px">
+        <h6 style="margin:0;font-weight:700;color:#303030;font-size:13px">All Sales</h6>
+    </div>
+    <div style="padding:0 8px 8px">
+        <table id="salesReportTable" class="table table-hover" style="margin:0">
+            <thead>
+                <tr>
+                    <th style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">#</th>
+                    <th style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Sale ID</th>
+                    <th style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Customer</th>
+                    <th style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Items</th>
+                    <th style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Date</th>
+                    <th style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px" class="text-right">Sub Total</th>
+                    <th style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px" class="text-right">Discount</th>
+                    <th style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px" class="text-right">Total</th>
+                    <th style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px" class="text-right">Paid</th>
+                    <th style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px" class="text-right">Due</th>
+                    <th style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">M-Pesa Code</th>
+                    <th style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Status</th>
+                </tr>
+            </thead>
+        </table>
+    </div>
 </div>
 @endsection
 
-@push('style')
-<style>
-  .invoice {
-    border: none !important;
-  }
-</style>
-@endpush
 @push('script')
 <script>
-  $(function() {
-    // Extract start and end dates from URL parameters
-    const urlParams = new URLSearchParams(window.location.search);
-    const startDate = urlParams.get('start_date') || moment().subtract(29, 'days').format('YYYY-MM-DD'); // Default to last 30 days if not present
-    const endDate = urlParams.get('end_date') || moment().format('YYYY-MM-DD'); // Default to today if not present
+(function () {
+    'use strict';
 
-    // Initialize the date range picker
-    $('#daterange-btn').daterangepicker({
-        ranges: {
-          'Today': [moment(), moment()],
-          'Yesterday': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
-          'Last 7 Days': [moment().subtract(6, 'days'), moment()],
-          'Last 30 Days': [moment().subtract(29, 'days'), moment()],
-          'This Month': [moment().startOf('month'), moment().endOf('month')],
-          'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+    var table = $('#salesReportTable').DataTable({
+        processing: true,
+        serverSide: true,
+        ordering: true,
+        order: [[4, 'desc']],
+        ajax: {
+            url: "{{ route('backend.admin.sale.report') }}",
+            data: function (d) {
+                d.status = $('#filterStatus').val();
+                d.from   = $('#filterFrom').val();
+                d.to     = $('#filterTo').val();
+            }
         },
-        startDate: moment(startDate, "YYYY-MM-DD"),
-        endDate: moment(endDate, "YYYY-MM-DD")
-      },
-      function(start, end) {
-        // Update the button text with the selected range
-        $('#daterange-btn span').html(start.format('MMMM D, YYYY') + ' - ' + end.format('MMMM D, YYYY'));
+        columns: [
+            { data: 'DT_RowIndex', name: 'DT_RowIndex', orderable: false, searchable: false },
+            { data: 'saleId',      name: 'saleId' },
+            { data: 'customer',    name: 'customer.name' },
+            { data: 'item',        name: 'item', orderable: false, searchable: false },
+            { data: 'date',        name: 'created_at' },
+            { data: 'sub_total',   name: 'sub_total', className: 'text-right' },
+            { data: 'discount',    name: 'discount',  className: 'text-right' },
+            { data: 'total',       name: 'total',     className: 'text-right' },
+            { data: 'paid',        name: 'paid',      className: 'text-right' },
+            { data: 'due',         name: 'due',       className: 'text-right' },
+            { data: 'mpesa_code',  name: 'mpesa_code' },
+            { data: 'status',      name: 'status',    orderable: false, searchable: false },
+        ]
+    });
 
-        // Redirect with selected start and end dates
-        window.location.href = '{{ route("backend.admin.sale.report") }}?start_date=' + start.format('YYYY-MM-DD') + '&end_date=' + end.format('YYYY-MM-DD');
-      }
-    );
+    $('#applyFilter').on('click', function () { table.ajax.reload(); });
 
-    // Set the initial display text for the date range button
-    $('#daterange-btn span').html(moment(startDate, "YYYY-MM-DD").format('MMMM D, YYYY') + ' - ' + moment(endDate, "YYYY-MM-DD").format('MMMM D, YYYY'));
-  });
+    $('#resetFilter').on('click', function () {
+        $('#filterStatus').val('');
+        $('#filterFrom').val('');
+        $('#filterTo').val('');
+        table.ajax.reload();
+    });
+
+}());
 </script>
 @endpush

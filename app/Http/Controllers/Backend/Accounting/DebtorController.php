@@ -52,7 +52,16 @@ class DebtorController extends Controller
         $toDate = $request->to_date;
         $statement = $this->debtorService->getCustomerStatement($customerId, $fromDate, $toDate);
 
-        return view('backend.accounting.debtors.statement', compact('statement', 'fromDate', 'toDate'));
+        $transactions = $statement['transactions'];
+        $totalDebits = array_sum(array_column($transactions, 'debit'));
+        $totalCredits = array_sum(array_column($transactions, 'credit'));
+        $currentBalance = $statement['current_balance'];
+        $creditLimit = (float) $statement['customer']->credit_limit;
+
+        return view('backend.accounting.debtors.statement', compact(
+            'statement', 'fromDate', 'toDate',
+            'totalDebits', 'totalCredits', 'currentBalance', 'creditLimit'
+        ));
     }
 
     public function storeReceipt(Request $request)
