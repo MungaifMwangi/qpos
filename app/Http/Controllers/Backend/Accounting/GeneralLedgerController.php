@@ -12,12 +12,16 @@ class GeneralLedgerController extends Controller
 {
     public function chartOfAccounts()
     {
+        abort_if(!auth()->user()->can('chart_of_accounts_view'), 403);
+
         $accounts = ChartOfAccount::orderBy('code', 'asc')->get();
         return view('backend.accounting.ledger.chart', compact('accounts'));
     }
 
     public function journalEntries(Request $request)
     {
+        abort_if(!auth()->user()->can('general_ledger_view'), 403);
+
         if ($request->ajax()) {
             $entries = JournalEntry::with(['lines.account', 'user'])->orderBy('id', 'desc')->get();
             return DataTables::of($entries)
@@ -43,6 +47,8 @@ class GeneralLedgerController extends Controller
      */
     public function entryLines(int $id)
     {
+        abort_if(!auth()->user()->can('general_ledger_view'), 403);
+
         $entry = JournalEntry::with(['lines.account'])->findOrFail($id);
 
         $lines = $entry->lines->map(fn($line) => [
@@ -58,6 +64,8 @@ class GeneralLedgerController extends Controller
 
     public function trialBalance()
     {
+        abort_if(!auth()->user()->can('trial_balance_view'), 403);
+
         $accounts = ChartOfAccount::with('journalLines')->orderBy('code', 'asc')->get();
         $totalDebit = 0.00;
         $totalCredit = 0.00;

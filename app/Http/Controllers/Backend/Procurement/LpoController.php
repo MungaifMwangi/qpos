@@ -27,6 +27,8 @@ class LpoController extends Controller
     // ---------------------------------------------------------------
     public function index(Request $request)
     {
+        abort_if(!auth()->user()->can('lpo_view'), 403);
+
         if ($request->ajax()) {
             $lpos = Lpo::with('supplier')->orderBy('id', 'desc')->get();
 
@@ -58,8 +60,8 @@ class LpoController extends Controller
                            . ' target="_blank" class="btn btn-secondary btn-sm m-1">'
                            . '<i class="fas fa-print"></i> Print LPO</a>';
 
-                    // Receive GRN button — only when status allows receiving
-                    if (in_array($d->status, ['issued', 'goods_received'])) {
+                    // Receive GRN button — only when status allows receiving and user has permission
+                    if (in_array($d->status, ['issued', 'goods_received']) && auth()->user()->can('grn_receive')) {
                         $btns .= '<button class="btn btn-warning btn-sm m-1 receive-btn"'
                                . ' data-id="' . $d->id . '"'
                                . ' data-lpo="' . $d->lpo_number . '">'
@@ -80,6 +82,8 @@ class LpoController extends Controller
     // ---------------------------------------------------------------
     public function create()
     {
+        abort_if(!auth()->user()->can('lpo_create'), 403);
+
         $suppliers = Supplier::orderBy('name')->get();
         $products  = Product::where('status', 1)->orderBy('name')->get();
 
@@ -98,6 +102,8 @@ class LpoController extends Controller
     // ---------------------------------------------------------------
     public function store(Request $request)
     {
+        abort_if(!auth()->user()->can('lpo_create'), 403);
+
         $request->validate([
             'supplier_id'              => 'required|exists:suppliers,id',
             'items'                    => 'required|array|min:1',
@@ -121,6 +127,8 @@ class LpoController extends Controller
     // ---------------------------------------------------------------
     public function show(int $id)
     {
+        abort_if(!auth()->user()->can('lpo_view'), 403);
+
         $lpo = Lpo::with([
             'supplier',
             'items.product.unit',
@@ -136,6 +144,8 @@ class LpoController extends Controller
     // ---------------------------------------------------------------
     public function printLpo(int $id)
     {
+        abort_if(!auth()->user()->can('lpo_view'), 403);
+
         $lpo = Lpo::with(['supplier', 'items.product.unit'])->findOrFail($id);
         return view('backend.procurement.lpo.print', compact('lpo'));
     }
@@ -145,6 +155,8 @@ class LpoController extends Controller
     // ---------------------------------------------------------------
     public function getItems(int $id)
     {
+        abort_if(!auth()->user()->can('grn_receive'), 403);
+
         $lpo = Lpo::with(['items.product', 'items.grnItems'])->findOrFail($id);
 
         $items = $lpo->items->map(function ($item) {
@@ -171,6 +183,8 @@ class LpoController extends Controller
     // ---------------------------------------------------------------
     public function storeGrn(Request $request, int $id)
     {
+        abort_if(!auth()->user()->can('grn_receive'), 403);
+
         $lpo = Lpo::findOrFail($id);
 
         $request->validate([
@@ -210,6 +224,8 @@ class LpoController extends Controller
     // ---------------------------------------------------------------
     public function storeInvoice(Request $request, int $id)
     {
+        abort_if(!auth()->user()->can('lpo_invoice_match'), 403);
+
         $lpo = Lpo::findOrFail($id);
 
         $request->validate([

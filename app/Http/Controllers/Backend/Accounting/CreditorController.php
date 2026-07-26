@@ -20,6 +20,8 @@ class CreditorController extends Controller
 
     public function index(Request $request)
     {
+        abort_if(!auth()->user()->can('creditors_view'), 403);
+
         if ($request->ajax()) {
             $aging = $this->creditorService->getAgingReport();
             // DataTables::of() with a plain PHP array uses client-side processing
@@ -41,6 +43,8 @@ class CreditorController extends Controller
 
     public function storePayment(Request $request)
     {
+        abort_if(!auth()->user()->can('creditors_payment_create'), 403);
+
         $request->validate([
             'supplier_id' => 'required|exists:suppliers,id',
             'amount' => 'required|numeric|min:1',

@@ -4,9 +4,11 @@
 @section('content')
 <div class="card">
     <div class="mt-n5 mb-3 d-flex justify-content-end">
+        @can('debtors_receipt_create')
         <button class="btn bg-gradient-success" data-toggle="modal" data-target="#receiptModal">
             <i class="fas fa-receipt"></i> Record Customer Receipt
         </button>
+        @endcan
     </div>
 
     @if(session('success'))

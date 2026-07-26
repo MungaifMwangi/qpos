@@ -14,11 +14,13 @@
                target="_blank" class="btn bg-gradient-secondary btn-sm mr-1">
                 <i class="fas fa-print"></i> Print LPO
             </a>
+            @can('grn_receive')
             @if(in_array($lpo->status, ['issued','goods_received']))
                 <button class="btn bg-gradient-warning btn-sm" id="openGrnBtn">
                     <i class="fas fa-truck-loading"></i> Receive Goods (GRN)
                 </button>
             @endif
+            @endcan
         </div>
     </div>
 
@@ -225,6 +227,7 @@
 
         @elseif($lpo->status === 'goods_received')
             {{-- Goods received — ready for invoice match --}}
+            @can('lpo_invoice_match')
             <form action="{{ route('backend.admin.lpo.store-invoice', $lpo->id) }}" method="POST">
                 @csrf
                 <div class="row">
@@ -266,6 +269,7 @@
                            placeholder="Reference, discrepancy notes…">
                 </div>
             </form>
+            @endcan
 
         @else
             <p class="text-muted mb-0">
@@ -279,6 +283,7 @@
 </div>{{-- /card --}}
 
 {{-- ── GRN Modal (same logic as index, scoped to this LPO) ────── --}}
+@can('grn_receive')
 @if(in_array($lpo->status, ['issued','goods_received']))
 <div class="modal fade" id="grnModal" tabindex="-1" role="dialog">
     <div class="modal-dialog modal-lg" role="document">
@@ -355,6 +360,7 @@
     </div>
 </div>
 @endif
+@endcan
 @endsection
 
 @push('script')

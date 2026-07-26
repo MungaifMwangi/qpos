@@ -4,9 +4,11 @@
 @section('content')
 <div class="card">
     <div class="mt-n5 mb-3 d-flex justify-content-end">
+        @can('creditors_payment_create')
         <button class="btn bg-gradient-primary" data-toggle="modal" data-target="#paymentModal">
             <i class="fas fa-money-bill-wave"></i> Record Supplier Payment
         </button>
+        @endcan
     </div>
 
     @if(session('success'))

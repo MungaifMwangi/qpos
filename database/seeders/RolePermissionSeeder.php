@@ -103,6 +103,21 @@ class RolePermissionSeeder extends Seeder
             'website_status_settings',
             'invoice_settings',
 
+            //accounting & ledger
+            'chart_of_accounts_view',
+            'general_ledger_view',
+            'trial_balance_view',
+            'debtors_view',
+            'debtors_receipt_create',
+            'creditors_view',
+            'creditors_payment_create',
+
+            //lpo procurement
+            'lpo_view',
+            'lpo_create',
+            'grn_receive',
+            'lpo_invoice_match',
+
         ];
         $admin = Role::where('name', 'Admin')->first();
         for ($i = 0; $i < count($permissions); $i++) {

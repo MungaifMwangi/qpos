@@ -5,9 +5,11 @@
 <div class="card">
 
     <div class="mt-n5 mb-3 d-flex justify-content-end">
+        @can('lpo_create')
         <a href="{{ route('backend.admin.lpo.create') }}" class="btn bg-gradient-primary">
             <i class="fas fa-plus-circle"></i> New LPO Requisition
         </a>
+        @endcan
     </div>
 
     @if(session('success'))

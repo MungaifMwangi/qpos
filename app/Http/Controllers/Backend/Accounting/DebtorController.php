@@ -20,6 +20,8 @@ class DebtorController extends Controller
 
     public function index(Request $request)
     {
+        abort_if(!auth()->user()->can('debtors_view'), 403);
+
         if ($request->ajax()) {
             $aging = $this->debtorService->getAgingReport();
             // DataTables::of() with a plain PHP array uses client-side processing
@@ -44,6 +46,8 @@ class DebtorController extends Controller
 
     public function statement(Request $request, int $customerId)
     {
+        abort_if(!auth()->user()->can('debtors_view'), 403);
+
         $fromDate = $request->from_date;
         $toDate = $request->to_date;
         $statement = $this->debtorService->getCustomerStatement($customerId, $fromDate, $toDate);
@@ -53,6 +57,8 @@ class DebtorController extends Controller
 
     public function storeReceipt(Request $request)
     {
+        abort_if(!auth()->user()->can('debtors_receipt_create'), 403);
+
         $request->validate([
             'customer_id' => 'required|exists:customers,id',
             'amount' => 'required|numeric|min:1',
