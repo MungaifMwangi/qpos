@@ -31,9 +31,8 @@
     </div>
   </div>
 </div>
-@endsection
 
-{{-- ── Void modal — rendered outside @section so it is never cut off ── --}}
+{{-- Void confirmation modal (must stay inside @section or Blade discards it) --}}
 @if(auth()->user()->hasRole('Admin'))
 <div class="modal fade" id="voidModal" tabindex="-1" role="dialog" aria-labelledby="voidModalLabel" aria-hidden="true">
   <div class="modal-dialog" role="document">
@@ -86,7 +85,10 @@
 </div>
 @endif
 
+@endsection
+
 @push('script')
+<script src="{{ asset('plugins/sweetalert2/sweetalert2.all.js') }}"></script>
 <script>
 (function () {
   'use strict';
@@ -119,13 +121,30 @@
     ]
   });
 
+  function showAlert(opts) {
+    if (typeof Swal !== 'undefined') {
+      return Swal.fire(opts);
+    }
+    alert((opts.title ? opts.title + '\n\n' : '') + (opts.text || ''));
+    return Promise.resolve();
+  }
+
   // ── Open void modal (admin only) ──────────────────────────────
   $(document).on('click', '.void-sale-btn', function () {
     if (!isAdmin) {
-      Swal.fire({
+      showAlert({
         icon:  'error',
         title: 'Access Denied',
         text:  'Only administrators can void a sale.',
+      });
+      return;
+    }
+
+    if (!$('#voidModal').length) {
+      showAlert({
+        icon:  'error',
+        title: 'Void Unavailable',
+        text:  'The void dialog could not be loaded. Please refresh the page and try again.',
       });
       return;
     }
@@ -170,11 +189,11 @@
       data:        JSON.stringify({ reason: reason }),
       success: function (res) {
         $('#voidModal').modal('hide');
-        Swal.fire({
-          icon:             'success',
-          title:            'Sale Voided',
-          text:             res.message,
-          confirmButtonText:'OK',
+        showAlert({
+          icon:              'success',
+          title:             'Sale Voided',
+          text:              res.message || 'The sale was voided successfully.',
+          confirmButtonText: 'OK',
         }).then(function () {
           table.ajax.reload(null, false);
         });
@@ -183,13 +202,19 @@
         var msg = 'Could not void sale. Please try again.';
         if (xhr.responseJSON && xhr.responseJSON.message) {
           msg = xhr.responseJSON.message;
+        } else if (xhr.status === 403) {
+          msg = 'Access denied. Only administrators can void a sale.';
+        } else if (xhr.status === 422) {
+          msg = xhr.responseJSON && xhr.responseJSON.errors && xhr.responseJSON.errors.reason
+            ? xhr.responseJSON.errors.reason[0]
+            : msg;
         }
         btn.prop('disabled', false)
            .html('<i class="fas fa-ban mr-1"></i> Void Sale');
 
         // 403 = not admin, 422 = already voided / validation
         var icon = xhr.status === 403 ? 'warning' : 'error';
-        Swal.fire({
+        showAlert({
           icon:  icon,
           title: xhr.status === 403 ? 'Not Allowed' : 'Void Failed',
           text:  msg,
