@@ -22,8 +22,10 @@ class DebtorController extends Controller
     {
         if ($request->ajax()) {
             $aging = $this->debtorService->getAgingReport();
-            return DataTables::of($aging)
+            // DataTables::of() with a plain PHP array uses client-side processing
+            return DataTables::of(collect($aging))
                 ->addIndexColumn()
+                ->addColumn('customer_name', fn($data) => $data['customer_name'])
                 ->addColumn('current', fn($data) => 'KES ' . number_format($data['current'], 2))
                 ->addColumn('days_30', fn($data) => 'KES ' . number_format($data['days_30'], 2))
                 ->addColumn('days_60', fn($data) => 'KES ' . number_format($data['days_60'], 2))
@@ -32,7 +34,7 @@ class DebtorController extends Controller
                 ->addColumn('action', function ($data) {
                     return '<a href="' . route('backend.admin.debtors.statement', $data['customer_id']) . '" class="btn btn-info btn-sm"><i class="fas fa-file-alt"></i> Statement</a>';
                 })
-                ->rawColumns(['current', 'days_30', 'days_60', 'days_90_plus', 'total_outstanding', 'action'])
+                ->rawColumns(['total_outstanding', 'action'])
                 ->toJson();
         }
 

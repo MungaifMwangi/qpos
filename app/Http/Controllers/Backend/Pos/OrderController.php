@@ -4,21 +4,26 @@ namespace App\Http\Controllers\Backend\Pos;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Models\OrderProduct;
 use App\Models\OrderTransaction;
 use App\Models\PosCart;
 use App\Models\Product;
+use App\Services\LedgerService;
 use App\Services\PosService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\DataTables;
 use Exception;
 
 class OrderController extends Controller
 {
     protected PosService $posService;
+    protected LedgerService $ledgerService;
 
-    public function __construct(PosService $posService)
+    public function __construct(PosService $posService, LedgerService $ledgerService)
     {
         $this->posService = $posService;
+        $this->ledgerService = $ledgerService;
     }
 
     /**
@@ -50,6 +55,7 @@ class OrderController extends Controller
                         $buttons .= '<a class="btn btn-warning btn-sm m-1" href="' . route('backend.admin.due.collection', $data->id) . '"><i class="fas fa-receipt"></i> Collection</a>';
                     }
                     $buttons .= '<a class="btn btn-primary btn-sm m-1" href="' . route('backend.admin.orders.transactions', $data->id) . '"><i class="fas fa-exchange-alt"></i> Ledger Tx</a>';
+                    $buttons .= '<button class="btn btn-danger btn-sm m-1 void-sale-btn" data-id="' . $data->id . '" data-sale="#' . $data->id . '"><i class="fas fa-ban"></i> Void</button>';
                     return $buttons;
                 })
                 ->rawColumns(['saleId', 'customer', 'item', 'sub_total', 'discount', 'total', 'paid', 'due', 'payment_method', 'status', 'action'])
@@ -175,5 +181,55 @@ class OrderController extends Controller
         $order = Order::with(['customer', 'products.product'])->findOrFail($id);
         $maxWidth = readConfig('receiptMaxwidth') ?? '300px';
         return view('backend.orders.pos-invoice', compact('order', 'maxWidth'));
+    }
+
+    /**
+     * Void a sale: reverse all GL entries, restore stock, delete transactions.
+     */
+    public function void(Request $request, int $id)
+    {
+        $order = Order::with(['products.product'])->findOrFail($id);
+
+        if ($order->payment_status === 'voided') {
+            return response()->json(['message' => 'This sale has already been voided.'], 422);
+        }
+
+        try {
+            DB::transaction(function () use ($order) {
+                // 1. Reverse all journal entries linked to this order
+                $journalEntries = \App\Models\JournalEntry::where('reference_type', 'Order')
+                    ->where('reference_id', $order->id)
+                    ->where('status', 'posted')
+                    ->get();
+
+                foreach ($journalEntries as $entry) {
+                    $this->ledgerService->reverseJournalEntry($entry, 'Sale voided by ' . auth()->user()->name);
+                }
+
+                // 2. Restore product stock
+                foreach ($order->products as $line) {
+                    if ($line->product) {
+                        $line->product->increment('quantity', $line->quantity);
+                    }
+                }
+
+                // 3. Remove any debtor transactions linked to this order
+                DB::table('debtor_transactions')->where('order_id', $order->id)->delete();
+
+                // 4. Delete order transactions (collection receipts)
+                $order->transactions()->delete();
+
+                // 5. Mark the order as voided
+                $order->update([
+                    'payment_status' => 'voided',
+                    'status'         => 0,
+                    'note'           => ($order->note ? $order->note . ' | ' : '') . 'VOIDED by ' . auth()->user()->name . ' on ' . now()->toDateTimeString(),
+                ]);
+            });
+
+            return response()->json(['message' => 'Sale #' . $order->id . ' has been voided and all associated transactions reversed.']);
+        } catch (Exception $e) {
+            return response()->json(['message' => 'Void failed: ' . $e->getMessage()], 500);
+        }
     }
 }

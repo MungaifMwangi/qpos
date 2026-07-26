@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\Product;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\DataTables;
 
 class ReportController extends Controller
@@ -77,25 +78,63 @@ class ReportController extends Controller
     }
     function inventoryReport(Request $request)
     {
-
         abort_if(!auth()->user()->can('reports_inventory'), 403);
+
         if ($request->ajax()) {
-            $products = Product::latest()->active()->get();
+            $products = Product::with('unit')->latest()->active()->get();
             return DataTables::of($products)
                 ->addIndexColumn()
                 ->addColumn('name', fn($data) => $data->name)
-                ->addColumn('sku', fn($data) => $data->sku)
+                ->addColumn('sku', fn($data) => $data->sku ?? '-')
                 ->addColumn(
                     'price',
-                    fn($data) => $data->discounted_price .
+                    fn($data) => number_format($data->discounted_price, 2) .
                         ($data->price > $data->discounted_price
-                            ? '<br><del>' . $data->price . '</del>'
+                            ? '<br><del>' . number_format($data->price, 2) . '</del>'
                             : '')
                 )
                 ->addColumn('quantity', fn($data) => $data->quantity . ' ' . optional($data->unit)->short_name)
-                ->rawColumns(['name', 'sku', 'price', 'quantity', 'status'])
+                ->addColumn('stock_value', fn($data) => number_format($data->quantity * $data->discounted_price, 2))
+                ->addColumn('action', fn($data) =>
+                    '<button class="btn btn-warning btn-sm adjust-stock-btn"'
+                    . ' data-id="' . $data->id . '"'
+                    . ' data-name="' . htmlspecialchars($data->name) . '"'
+                    . ' data-qty="' . $data->quantity . '">'
+                    . '<i class="fas fa-edit"></i> Adjust</button>'
+                )
+                ->rawColumns(['price', 'quantity', 'stock_value', 'action'])
                 ->toJson();
         }
-        return view('backend.reports.inventory');
+
+        // Dashboard stats for the view
+        $products = Product::with('unit')->active()->get();
+        $totalCount = $products->sum('quantity');
+        $totalValue = $products->sum(fn($p) => $p->quantity * $p->discounted_price);
+        $productCount = $products->count();
+
+        return view('backend.reports.inventory', compact('totalCount', 'totalValue', 'productCount'));
+    }
+
+    public function adjustStock(Request $request)
+    {
+        abort_if(!auth()->user()->can('reports_inventory'), 403);
+
+        $request->validate([
+            'product_id'   => 'required|exists:products,id',
+            'new_quantity' => 'required|numeric|min:0',
+            'reason'       => 'nullable|string|max:255',
+        ]);
+
+        $product = Product::findOrFail($request->product_id);
+        $oldQty  = $product->quantity;
+        $newQty  = (int) $request->new_quantity;
+
+        $product->update(['quantity' => $newQty]);
+
+        return response()->json([
+            'message'      => "Stock for \"{$product->name}\" adjusted from {$oldQty} to {$newQty}.",
+            'old_quantity' => $oldQty,
+            'new_quantity' => $newQty,
+        ]);
     }
 }

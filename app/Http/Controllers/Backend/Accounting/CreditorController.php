@@ -22,14 +22,16 @@ class CreditorController extends Controller
     {
         if ($request->ajax()) {
             $aging = $this->creditorService->getAgingReport();
-            return DataTables::of($aging)
+            // DataTables::of() with a plain PHP array uses client-side processing
+            return DataTables::of(collect($aging))
                 ->addIndexColumn()
+                ->addColumn('supplier_name', fn($data) => $data['supplier_name'])
                 ->addColumn('current', fn($data) => 'KES ' . number_format($data['current'], 2))
                 ->addColumn('days_30', fn($data) => 'KES ' . number_format($data['days_30'], 2))
                 ->addColumn('days_60', fn($data) => 'KES ' . number_format($data['days_60'], 2))
                 ->addColumn('days_90_plus', fn($data) => 'KES ' . number_format($data['days_90_plus'], 2))
                 ->addColumn('total_outstanding', fn($data) => '<strong>KES ' . number_format($data['total_outstanding'], 2) . '</strong>')
-                ->rawColumns(['current', 'days_30', 'days_60', 'days_90_plus', 'total_outstanding'])
+                ->rawColumns(['total_outstanding'])
                 ->toJson();
         }
 

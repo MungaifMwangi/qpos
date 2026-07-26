@@ -25,8 +25,8 @@ class GeneralLedgerController extends Controller
                 ->addColumn('entry_number', fn($data) => '<strong>' . $data->entry_number . '</strong>')
                 ->addColumn('date', fn($data) => $data->entry_date)
                 ->addColumn('narration', fn($data) => $data->narration)
-                ->addColumn('posted_by', fn($data) => $data->user->name ?? 'System')
-                ->addColumn('status', fn($data) => '<span class="badge bg-' . ($data->status === 'posted' ? 'success' : 'danger') . '">' . ucfirst($data->status) . '</span>')
+                ->addColumn('posted_by', fn($data) => optional($data->user)->name ?? 'System')
+                ->addColumn('status', fn($data) => '<span class="badge bg-' . ($data->status === 'posted' ? 'success' : ($data->status === 'reversed' ? 'warning' : 'danger')) . '">' . ucfirst($data->status) . '</span>')
                 ->addColumn('action', function ($data) {
                     return '<button class="btn btn-info btn-sm view-lines-btn" data-id="' . $data->id . '"><i class="fas fa-list"></i> View Lines</button>';
                 })
@@ -35,6 +35,25 @@ class GeneralLedgerController extends Controller
         }
 
         return view('backend.accounting.ledger.entries');
+    }
+
+    /**
+     * Return the debit/credit lines for a single journal entry as JSON
+     * (used by the "View Lines" modal in the entries DataTable).
+     */
+    public function entryLines(int $id)
+    {
+        $entry = JournalEntry::with(['lines.account'])->findOrFail($id);
+
+        $lines = $entry->lines->map(fn($line) => [
+            'account_code' => optional($line->account)->code ?? '-',
+            'account_name' => optional($line->account)->name ?? 'Unknown',
+            'debit'        => $line->debit,
+            'credit'       => $line->credit,
+            'memo'         => $line->memo,
+        ]);
+
+        return response()->json($lines);
     }
 
     public function trialBalance()

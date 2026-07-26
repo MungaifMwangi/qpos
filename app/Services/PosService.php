@@ -58,7 +58,7 @@ class PosService
             }
         }
 
-        return DB::transaction(function () use ($orderData, $cartItems, $customer, $paymentMethod, $totalAmount, $vatAmount, $netTotal, $grossTotal, $taxMode, $customerPhone) {
+        return DB::transaction(function () use ($orderData, $cartItems, $customer, $paymentMethod, $totalAmount, $vatAmount, $netTotal, $grossTotal, $taxMode, $customerPhone, $tendered) {
             $customer = Customer::lockForUpdate()->findOrFail($customer->id);
             if ($paymentMethod === 'debtor' && $customer->credit_limit > 0) {
                 $outstanding = DB::table('debtor_transactions')->where('customer_id', $customer->id)->sum('amount');

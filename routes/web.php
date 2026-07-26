@@ -81,12 +81,14 @@ Route::prefix('admin')->as('backend.admin.')->middleware(['admin'])->group(funct
     Route::get('orders/transactions/{id}', [OrderController::class, 'transactions'])->name('orders.transactions');
     Route::match(['get', 'post'], 'orders/due/collection/{id}', [OrderController::class, 'collection'])->name('due.collection');
     Route::get('collection/invoice/{id}', [OrderController::class, 'collectionInvoice'])->name('collectionInvoice');
+    Route::delete('orders/void/{id}', [OrderController::class, 'void'])->name('orders.void');
     Route::resource('categories', CategoryController::class);
     //start report
 
     Route::get('/sale/summery', [ReportController::class, 'saleSummery'])->name('sale.summery');
     Route::get('/sale/report', [ReportController::class, 'saleReport'])->name('sale.report');
     Route::get('/inventory/report', [ReportController::class, 'inventoryReport'])->name('inventory.report');
+    Route::post('/inventory/adjust', [ReportController::class, 'adjustStock'])->name('inventory.adjust');
     //end report
 
     //start accounting
@@ -96,6 +98,7 @@ Route::prefix('admin')->as('backend.admin.')->middleware(['admin'])->group(funct
     // Double-Entry General Ledger
     Route::get('accounting/ledger/chart', [\App\Http\Controllers\Backend\Accounting\GeneralLedgerController::class, 'chartOfAccounts'])->name('accounting.ledger.chart');
     Route::get('accounting/ledger/entries', [\App\Http\Controllers\Backend\Accounting\GeneralLedgerController::class, 'journalEntries'])->name('accounting.ledger.entries');
+    Route::get('accounting/ledger/entry-lines/{id}', [\App\Http\Controllers\Backend\Accounting\GeneralLedgerController::class, 'entryLines'])->name('accounting.ledger.entry-lines');
     Route::get('accounting/ledger/trial-balance', [\App\Http\Controllers\Backend\Accounting\GeneralLedgerController::class, 'trialBalance'])->name('accounting.ledger.trial-balance');
 
     // Debtors AR

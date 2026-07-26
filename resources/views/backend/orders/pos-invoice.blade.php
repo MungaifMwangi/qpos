@@ -107,6 +107,8 @@
   .receipt-container {
     border: 1px dotted #000;
     padding: 8px;
+    font-weight: 600;
+  
   }
 
   hr {
@@ -119,9 +121,13 @@
     width: 100%;
   }
 
-  td,
+  td {
+    padding: 2px 0;
+    font-weight: 600;
+  }
   th {
     padding: 2px 0;
+    font-weight: 700;
   }
 
   .text-right {
