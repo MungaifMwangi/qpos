@@ -258,7 +258,6 @@
             url:         grnBaseUrl + '/' + currentLpoId + '/grn',
             type:        'POST',
             data:        payload,
-            traditional: true,
             success: function (res) {
                 $('#grnModal').modal('hide');
                 Swal.fire({
