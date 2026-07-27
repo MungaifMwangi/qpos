@@ -73,12 +73,19 @@ class LpoController extends Controller
                            . ' target="_blank" class="btn btn-secondary btn-sm m-1">'
                            . '<i class="fas fa-print"></i> Print LPO</a>';
 
-                    // Receive GRN button — only when status allows receiving and user has permission
-                    if (in_array($d->status, ['issued', 'goods_received']) && auth()->user()->can('grn_receive')) {
+                    // Receive GRN button — only for issued status
+                    if ($d->status === 'issued' && auth()->user()->can('grn_receive')) {
                         $btns .= '<button class="btn btn-warning btn-sm m-1 receive-btn"'
                                . ' data-id="' . $d->id . '"'
                                . ' data-lpo="' . $d->lpo_number . '">'
                                . '<i class="fas fa-truck-loading"></i> Receive GRN</button>';
+                    }
+
+                    // Match Invoice button — for goods_received status
+                    if ($d->status === 'goods_received' && auth()->user()->can('lpo_invoice_match')) {
+                        $btns .= '<a href="' . route('backend.admin.lpo.show', $d->id) . '"'
+                               . ' class="btn btn-primary btn-sm m-1">'
+                               . '<i class="fas fa-file-invoice-dollar"></i> Match Invoice</a>';
                     }
 
                     return $btns;
