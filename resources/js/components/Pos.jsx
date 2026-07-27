@@ -232,7 +232,7 @@ export default function Pos() {
                                 <span className="pos-summary-label">Payment</span>
                                 <select className="form-control form-control-sm" style={{ width: "55%", borderRadius: "8px", fontSize: "14px", padding: "6px 10px" }} value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} disabled={total <= 0}>
                                     <option value="cash">Cash</option>
-                                    <option value="stk_push">M-Pesa STK Push</option>
+                                    <option value="stk_push">M-Pesa</option>
                                     <option value="debtor">Customer Credit</option>
                                 </select>
                             </div>
