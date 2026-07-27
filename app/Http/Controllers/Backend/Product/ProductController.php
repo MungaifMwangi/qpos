@@ -37,37 +37,27 @@ class ProductController extends Controller
             $products = Product::latest()->get();
             return DataTables::of($products)
                 ->addIndexColumn()
-                ->addColumn('image', fn($data) => '<img src="' . asset('storage/' . $data->image) . '" loading="lazy" alt="' . $data->name . '" class="img-thumb img-fluid" onerror="this.onerror=null; this.src=\'' . asset('assets/images/no-image.png') . '\';" height="80" width="60" />')
-                ->addColumn('name', fn($data) => $data->name)
+                ->addColumn('image', fn($data) => '<img src="' . asset('storage/' . $data->image) . '" loading="lazy" alt="' . $data->name . '" class="prod-thumb" onerror="this.onerror=null; this.src=\'' . asset('assets/images/no-image.png') . '\';" />')
+                ->addColumn('name', fn($data) => '<div style="font-weight:600;font-size:13px;color:#303030">' . $data->name . '</div><div style="font-size:11px;color:#999">' . $data->sku . '</div>')
                 ->addColumn(
                     'price',
-                    fn($data) => $data->discounted_price .
+                    fn($data) => '<span style="font-weight:600;font-size:13px">' . number_format($data->discounted_price, 2) . '</span>' .
                         ($data->price > $data->discounted_price
-                            ? '<br><del>' . $data->price . '</del>'
+                            ? '<br><del style="font-size:11px;color:#999">' . number_format($data->price, 2) . '</del>'
                             : '')
                 )
-                ->addColumn('quantity', fn($data) => $data->quantity . ' ' . optional($data->unit)->short_name)
-                ->addColumn('created_at', fn($data) => $data->created_at->format('d M, Y'))
+                ->addColumn('quantity', fn($data) => '<span style="font-size:13px">' . $data->quantity . ' ' . optional($data->unit)->short_name . '</span>')
+                ->addColumn('created_at', fn($data) => '<span style="font-size:12px;color:#666">' . $data->created_at->format('d M, Y') . '</span>')
                 ->addColumn('status', fn($data) => $data->status
-                    ? '<span class="badge bg-primary">Active</span>'
-                    : '<span class="badge bg-danger">Inactive</span>')
+                    ? '<span class="prod-badge-active">Active</span>'
+                    : '<span class="prod-badge-inactive">Inactive</span>')
                 ->addColumn('action', function ($data) {
-                    return '<div class="btn-group">
-                    <button type="button" class="btn bg-gradient-primary btn-flat">Action</button>
-                    <button type="button" class="btn bg-gradient-primary btn-flat dropdown-toggle dropdown-icon" data-toggle="dropdown" aria-expanded="false">
-                      <span class="sr-only">Toggle Dropdown</span>
-                    </button>
-                    <div class="dropdown-menu" role="menu">
-                      <a class="dropdown-item" href="'.route('backend.admin.products.edit', $data->id). '">
-                    <i class="fas fa-edit"></i> Edit
-                </a> <div class="dropdown-divider"></div>
-  <a class="dropdown-item" href="' . route('backend.admin.purchase.create', ['barcode' => $data->sku]) . '">
-                <i class="fas fa-cart-plus"></i> Purchase
-            </a>
-                    </div>
-                  </div>';
+                    $editUrl = route('backend.admin.products.edit', $data->id);
+                    $purchaseUrl = route('backend.admin.purchase.create', ['barcode' => $data->sku]);
+                    return '<a href="' . $editUrl . '" class="prod-action-edit" title="Edit"><i class="fas fa-edit"></i></a> '
+                         . '<a href="' . $purchaseUrl . '" class="prod-action-purchase" title="Purchase"><i class="fas fa-cart-plus"></i></a>';
                 })
-                ->rawColumns(['image', 'name', 'price', 'quantity', 'status', 'created_at', 'action'])
+                ->rawColumns(['image', 'name', 'price', 'quantity', 'created_at', 'status', 'action'])
                 ->toJson();
         }
         if ($request->wantsJson()) {
@@ -180,13 +170,21 @@ class ProductController extends Controller
     }
     public function import(Request $request)
     {
+        abort_if(!auth()->user()->can('product_import'), 403);
+
         if ($request->query('download-demo')) {
             return Excel::download(new DemoProductsExport, 'demo_products.xlsx');
         }
+
         if ($request->isMethod('post') && $request->hasFile('file')) {
-            Excel::import(new ProductsImport, $request->file('file'));
-            return redirect()->back()->with('success', 'Products imported successfully.');
+            try {
+                Excel::import(new ProductsImport, $request->file('file'));
+                return redirect()->route('backend.admin.products.index')->with('success', 'Products imported successfully!');
+            } catch (\Exception $e) {
+                return redirect()->back()->with('error', 'Import failed: ' . $e->getMessage());
+            }
         }
+
         return view('backend.products.import');
     }
 }

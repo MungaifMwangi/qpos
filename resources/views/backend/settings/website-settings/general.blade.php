@@ -600,10 +600,6 @@
                                     <span id="currentVersion" class="badge bg-secondary ml-1">Loading...</span>
                                 </div>
                                 <div class="col-md-4">
-                                    <strong>Commit:</strong>
-                                    <code id="currentCommit">...</code>
-                                </div>
-                                <div class="col-md-4">
                                     <strong>Status:</strong>
                                     <span id="updateStatus" class="badge bg-secondary ml-1">Checking...</span>
                                 </div>
@@ -671,12 +667,6 @@
                                     <span id="rollbackVersion" class="badge bg-secondary ml-1">...</span>
                                 </div>
                                 <div class="col-md-6">
-                                    <strong>Commit:</strong>
-                                    <code id="rollbackCommit">...</code>
-                                </div>
-                            </div>
-                            <div class="row mb-3">
-                                <div class="col-md-6">
                                     <strong>Saved On:</strong>
                                     <span id="rollbackDate">...</span>
                                 </div>
@@ -728,7 +718,6 @@
                 type: 'GET',
                 success: function (res) {
                     $('#currentVersion').text('v' + res.local_version).removeClass('bg-secondary').addClass('bg-info');
-                    $('#currentCommit').text(res.local_hash);
                     if (res.updatable) {
                         $('#updateStatus').text(res.behind + ' commit(s) behind').removeClass('bg-secondary').addClass('bg-warning');
                     } else {
@@ -749,7 +738,6 @@
                 success: function (res) {
                     if (res.available) {
                         $('#rollbackVersion').text('v' + res.version);
-                        $('#rollbackCommit').text(res.commit ? res.commit.substring(0, 7) : 'N/A');
                         $('#rollbackDate').text(res.saved_at || 'N/A');
                         $('#rollbackUser').text(res.saved_by || 'N/A');
                         $('#rollbackSection').fadeIn();
@@ -777,8 +765,7 @@
                         html = '<div class="alert alert-warning mb-0">'
                              + '<i class="fas fa-arrow-circle-up mr-1"></i>'
                              + '<strong>Update available!</strong> '
-                             + 'Remote has <strong>v' + res.remote_version + '</strong> '
-                             + '(<code>' + res.remote_hash + '</code>) — '
+                             + 'Remote has <strong>v' + res.remote_version + '</strong> — '
                              + res.behind + ' commit(s) ahead of your local '
                              + '<strong>v' + res.local_version + '</strong>.'
                              + '</div>';
@@ -786,8 +773,7 @@
                         html = '<div class="alert alert-success mb-0">'
                              + '<i class="fas fa-check-circle mr-1"></i>'
                              + '<strong>Your system is up to date!</strong> '
-                             + 'Running <strong>v' + res.local_version + '</strong> '
-                             + '(<code>' + res.local_hash + '</code>) on branch <code>' + res.branch + '</code>.'
+                             + 'Running <strong>v' + res.local_version + '</strong>.'
                              + '</div>';
                     }
                     $('#checkResult').html(html).fadeIn();
@@ -831,8 +817,7 @@
                             var logHtml = '<div class="alert alert-success">'
                                         + '<i class="fas fa-check-circle mr-1"></i>'
                                         + '<strong>Update applied successfully!</strong> '
-                                        + 'Now running <strong>v' + res.version + '</strong> '
-                                        + '(<code>' + res.commit + '</code>).'
+                                        + 'Now running <strong>v' + res.version + '</strong>.'
                                         + '</div>'
                                         + '<div class="card card-outline card-secondary mt-2">'
                                         + '<div class="card-header py-1">'
@@ -897,8 +882,7 @@
                             var logHtml = '<div class="alert alert-success">'
                                         + '<i class="fas fa-check-circle mr-1"></i>'
                                         + '<strong>Rollback complete!</strong> '
-                                        + 'System reverted to <strong>v' + res.version + '</strong> '
-                                        + '(<code>' + res.commit + '</code>).'
+                                        + 'System reverted to <strong>v' + res.version + '</strong>.'
                                         + '</div>'
                                         + '<div class="card card-outline card-secondary mt-2">'
                                         + '<div class="card-header py-1">'
