@@ -31,7 +31,7 @@ class PosService
 
         $totalAmount = floatval($orderData['total']);
         $vatRate = 0.16;
-        $taxMode = $orderData['tax_mode'] ?? 'inclusive';
+        $taxMode = $orderData['tax_mode'] ?? 'exclusive';
         $vatAmount = $taxMode === 'exclusive'
             ? round($totalAmount * $vatRate, 2)
             : round($totalAmount - ($totalAmount / (1 + $vatRate)), 2);

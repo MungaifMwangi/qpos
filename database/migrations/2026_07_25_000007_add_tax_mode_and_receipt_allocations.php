@@ -10,7 +10,7 @@ return new class extends Migration
     {
         if (!Schema::hasColumn('orders', 'tax_mode')) {
             Schema::table('orders', function (Blueprint $table) {
-                $table->enum('tax_mode', ['inclusive', 'exclusive'])->default('inclusive')->after('net_total');
+                $table->enum('tax_mode', ['inclusive', 'exclusive'])->default('exclusive')->after('net_total');
             });
         }
 

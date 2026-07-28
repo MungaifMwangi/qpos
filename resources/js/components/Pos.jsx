@@ -174,7 +174,18 @@ export default function Pos() {
                     setCartUpdated(!cartUpdated);
                     setProductUpdated(!productUpdated);
                     toast.success(res?.data?.message);
-                    window.location.href = `orders/pos-invoice/${res?.data?.order?.id}`;
+                    // Print receipt directly via hidden iframe — no page navigation
+                    var orderId = res?.data?.order?.id;
+                    if (orderId) {
+                        var iframe = document.createElement('iframe');
+                        iframe.style.position = 'absolute';
+                        iframe.style.width = '0';
+                        iframe.style.height = '0';
+                        iframe.style.border = '0';
+                        document.body.appendChild(iframe);
+                        iframe.src = '/admin/orders/print-receipt/' + orderId;
+                        setTimeout(function () { if (iframe.parentNode) iframe.parentNode.removeChild(iframe); }, 30000);
+                    }
                 })
                 .catch((err) => { playSound(WarningSound); toast.error(getErrorMessage(err), { duration: 6000 }); });
             }
@@ -240,8 +251,8 @@ export default function Pos() {
                             <div className="pos-summary-row">
                                 <span className="pos-summary-label">VAT Mode</span>
                                 <select className="form-control form-control-sm" style={{ width: "55%", borderRadius: "8px", fontSize: "14px", padding: "6px 10px" }} value={taxMode} onChange={(e) => setTaxMode(e.target.value)} disabled={total <= 0}>
-                                    <option value="inclusive">Inclusive (16%)</option>
                                     <option value="exclusive">Exclusive (16%)</option>
+                                    <option value="inclusive">Inclusive (16%)</option>
                                 </select>
                             </div>
 

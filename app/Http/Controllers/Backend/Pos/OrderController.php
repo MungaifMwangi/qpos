@@ -83,10 +83,11 @@ class OrderController extends Controller
 
                     // Paid orders get a Receipt (POS invoice), pending orders get Invoice
                     if ($data->payment_status === 'paid' || $data->status) {
-                        // Paid — show receipt only
-                        $buttons .= '<a class="btn btn-success btn-sm m-1" href="'
-                            . route('backend.admin.orders.pos-invoice', $data->id)
-                            . '" title="Receipt"><i class="fas fa-receipt"></i> Receipt</a>';
+                        // Paid — print receipt directly (no page navigation)
+                        $buttons .= '<button class="btn btn-success btn-sm m-1 btn-print-receipt"'
+                            . ' data-id="' . $data->id . '"'
+                            . ' title="Print Receipt">'
+                            . '<i class="fas fa-receipt"></i> Receipt</button>';
                     } else {
                         // Pending / due — show invoice and collection
                         $buttons .= '<a class="btn btn-info btn-sm m-1" href="'
@@ -235,6 +236,13 @@ class OrderController extends Controller
         $order = Order::with(['customer', 'products.product'])->findOrFail($id);
         $maxWidth = readConfig('receiptMaxwidth') ?? '300px';
         return view('backend.orders.pos-invoice', compact('order', 'maxWidth'));
+    }
+
+    public function printReceipt($id)
+    {
+        $order = Order::with(['customer', 'products.product'])->findOrFail($id);
+        $maxWidth = readConfig('receiptMaxwidth') ?? '300px';
+        return view('backend.orders.pos-invoice-print', compact('order', 'maxWidth'));
     }
 
     /**

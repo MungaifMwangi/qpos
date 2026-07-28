@@ -82,6 +82,7 @@ Route::prefix('admin')->as('backend.admin.')->middleware(['admin'])->group(funct
     // Specific order sub-routes MUST come before Route::resource('orders') to avoid wildcard collision
     Route::get('orders/invoice/{id}', [OrderController::class,'invoice'])->name('orders.invoice');
     Route::get('orders/pos-invoice/{id}', [OrderController::class, 'posInvoice'])->name('orders.pos-invoice');
+    Route::get('orders/print-receipt/{id}', [OrderController::class, 'printReceipt'])->name('orders.print-receipt');
     Route::get('orders/transactions/{id}', [OrderController::class, 'transactions'])->name('orders.transactions');
     Route::match(['get', 'post'], 'orders/due/collection/{id}', [OrderController::class, 'collection'])->name('due.collection');
     Route::get('collection/invoice/{id}', [OrderController::class, 'collectionInvoice'])->name('collectionInvoice');
