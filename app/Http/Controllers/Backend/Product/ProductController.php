@@ -14,6 +14,8 @@ use App\Models\Product;
 use App\Models\Unit;
 use App\Trait\FileHandler;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Intervention\Image\Facades\Image;
 use Maatwebsite\Excel\Facades\Excel;
 use Yajra\DataTables\DataTables;
 
@@ -104,7 +106,7 @@ class ProductController extends Controller
         $validated = $request->validated();
         $product = Product::create($validated);
         if ($request->hasFile("product_image")) {
-            $product->image = $this->fileHandler->fileUploadAndGetPath($request->file("product_image"), "/public/media/products");
+            $product->image = $this->resizeAndSaveImage($request->file("product_image"));
             $product->save();
         }
 
@@ -146,7 +148,7 @@ class ProductController extends Controller
         $oldImage = $product->image;
         $product->update($validated);
         if ($request->hasFile("product_image")) {
-            $product->image = $this->fileHandler->fileUploadAndGetPath($request->file("product_image"), "/public/media/products");
+            $product->image = $this->resizeAndSaveImage($request->file("product_image"));
             $product->save();
             $this->fileHandler->secureUnlink($oldImage);
         }
@@ -186,5 +188,28 @@ class ProductController extends Controller
         }
 
         return view('backend.products.import');
+    }
+
+    /**
+     * Resize image to max 400px width (keeping aspect ratio) and save to storage.
+     * Returns the relative path for DB storage.
+     */
+    private function resizeAndSaveImage($file): string
+    {
+        $fileName = time() . '_' . $file->getClientOriginalName();
+        $dir = storage_path('app/public/media/products');
+
+        if (!is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+
+        $img = Image::make($file->getRealPath());
+        $img->resize(400, null, function ($constraint) {
+            $constraint->aspectRatio();
+            $constraint->upsize();
+        });
+        $img->save($dir . '/' . $fileName, 85);
+
+        return 'media/products/' . $fileName;
     }
 }

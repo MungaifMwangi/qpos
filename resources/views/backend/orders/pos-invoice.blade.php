@@ -4,25 +4,27 @@
 
 <div class="card">
   <!-- Main content -->
-  <div class="receipt-container mt-0" id="printable-section" style="max-width: {{ $maxWidth}}; font-size: 12px; font-family: 'Courier New', Courier, monospace;">
+  <div class="receipt-container mt-0" id="printable-section" style="max-width: {{ $maxWidth}}; font-size: 14px; font-family: 'Arial', 'Helvetica', sans-serif;">
     <div class="text-center">
       @if(readConfig('is_show_logo_invoice'))
       <img src="{{ assetImage(readconfig('site_logo')) }}" height="30" width="70" alt="Logo">
       @endif
       @if(readConfig('is_show_site_invoice'))
-      <h3>{{ readConfig('site_name') }}</h3>
+      <h3 style="font-size:18px;margin:4px 0">{{ readConfig('site_name') }}</h3>
       @endif
-      @if(readConfig('is_show_address_invoice')){{ readConfig('contact_address') }}<br>@endif
-      @if(readConfig('is_show_phone_invoice')){{ readConfig('contact_phone') }}<br>@endif
-      @if(readConfig('is_show_email_invoice')){{ readConfig('contact_email') }}<br>@endif
+      @if(readConfig('is_show_address_invoice'))<span style="font-size:12px">{{ readConfig('contact_address') }}</span><br>@endif
+      @if(readConfig('is_show_phone_invoice'))<span style="font-size:12px">{{ readConfig('contact_phone') }}</span><br>@endif
+      @if(readConfig('is_show_email_invoice'))<span style="font-size:12px">{{ readConfig('contact_email') }}</span><br>@endif
     </div>
-    {{ 'User: '.auth()->user()->name}}<br>
-    {{ 'Order: #'.$order->id}}<br>
+    <div style="font-size:13px">
+      {{ 'User: '.auth()->user()->name}}<br>
+      {{ 'Order: #'.$order->id}}<br>
+    </div>
     <hr>
     <div class="row justify-content-between mx-auto">
       <div class="text-left">
         @if(readConfig('is_show_customer_invoice'))
-        <address>
+        <address style="font-size:12px">
           Name: {{ $order->customer->name ?? 'N/A' }}<br>
           Address: {{ $order->customer->address ?? 'N/A' }}<br>
           Phone: {{ $order->customer->phone ?? 'N/A' }}
@@ -30,7 +32,7 @@
         @endif
       </div>
       <div class="text-right">
-        <address class="text-right">
+        <address class="text-right" style="font-size:12px">
           <p>{{ date('d-M-Y') }}</p>
           <p>{{ date('h:i:s A') }}</p>
         </address>
@@ -40,20 +42,17 @@
     <table style="width: 100%;">
       <thead>
         <tr>
-          <th style="text-align: left;">Product</th>
-          <th style="text-align: right;"></th>
-          <!-- <th style="text-align: right;">Qty</th> -->
-          <!-- <th style="text-align: right;">Price {{ currency()->symbol}}</th> -->
-          <th style="text-align: right;">Total {{ currency()->symbol}}</th>
+          <th style="text-align: left;font-size:13px">Product</th>
+          <th style="text-align: right;font-size:13px"></th>
+          <th style="text-align: right;font-size:13px">Total {{ currency()->symbol}}</th>
         </tr>
       </thead>
       <tbody>
         @foreach ($order->products as $item)
         <tr>
-          <td>{{ $item->product->name }}</td>
-          <!-- <td class="text-right">{{ $item->quantity }}</td> -->
-          <td class="text-right">{{ $item->quantity }}*{{ $item->discounted_price}}</td>
-          <td class="text-right">{{ $item->total }}</td>
+          <td style="font-size:13px">{{ $item->product->name }}</td>
+          <td class="text-right" style="font-size:13px">{{ $item->quantity }}*{{ $item->discounted_price}}</td>
+          <td class="text-right" style="font-size:13px">{{ $item->total }}</td>
         </tr>
         @endforeach
       </tbody>
@@ -62,36 +61,36 @@
     <div class="summary">
       <table style="width: 100%;">
         <tr>
-          <td>Subtotal:</td>
-          <td class="text-right">{{number_format($order->sub_total, 2) }}</td>
+          <td style="font-size:13px">Subtotal:</td>
+          <td class="text-right" style="font-size:13px">{{number_format($order->sub_total, 2) }}</td>
         </tr>
         <tr>
-          <td>Discount:</td>
-          <td class="text-right">{{number_format($order->discount, 2) }}</td>
+          <td style="font-size:13px">Discount:</td>
+          <td class="text-right" style="font-size:13px">{{number_format($order->discount, 2) }}</td>
         </tr>
         <tr>
-          <td><strong>Total:</strong></td>
-          <td class="text-right"><strong>{{number_format($order->total, 2) }}</strong></td>
+          <td style="font-size:15px"><strong>Total:</strong></td>
+          <td class="text-right" style="font-size:15px"><strong>{{number_format($order->total, 2) }}</strong></td>
         </tr>
         <tr>
-          <td>Paid:</td>
-          <td class="text-right">{{number_format($order->paid + $order->change_amount, 2) }}</td>
+          <td style="font-size:13px">Paid:</td>
+          <td class="text-right" style="font-size:13px">{{number_format($order->paid + $order->change_amount, 2) }}</td>
         </tr>
         @if($order->change_amount > 0)
         <tr>
-          <td>Change:</td>
-          <td class="text-right">{{number_format($order->change_amount, 2) }}</td>
+          <td style="font-size:13px">Change:</td>
+          <td class="text-right" style="font-size:13px">{{number_format($order->change_amount, 2) }}</td>
         </tr>
         @endif
         <tr>
-          <td>Due:</td>
-          <td class="text-right">{{number_format($order->due, 2) }}</td>
+          <td style="font-size:13px">Due:</td>
+          <td class="text-right" style="font-size:13px">{{number_format($order->due, 2) }}</td>
         </tr>
       </table>
     </div>
     <hr>
     <div class="text-center">
-      <p class="text-muted" style="font-size: 12px;">@if(readConfig('is_show_note_invoice')){{ readConfig('note_to_customer_invoice') }}@endif</p>
+      <p class="text-muted" style="font-size: 11px;">@if(readConfig('is_show_note_invoice')){{ readConfig('note_to_customer_invoice') }}@endif</p>
     </div>
   </div>
 
