@@ -68,7 +68,7 @@
   {{-- Meta --}}
   <div class="fs-12 mb-4">
     User: {{ auth()->user()->name }}<br>
-    Order: #{{ $order->id }}
+    Receipt No: #{{ $order->id }}
   </div>
 
   @if(readConfig('is_show_customer_invoice') && $order->customer)

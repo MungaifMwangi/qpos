@@ -22,7 +22,7 @@
     {{-- Meta --}}
     <div style="font-size:12px;color:#000;margin-bottom:4px">
       User: {{ auth()->user()->name }}<br>
-      Order: #{{ $order->id }}
+      Receipt No: #{{ $order->id }}
     </div>
 
     @if(readConfig('is_show_customer_invoice') && $order->customer)
