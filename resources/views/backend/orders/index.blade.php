@@ -278,27 +278,13 @@
     currentVoidId = null;
   });
 
-  // ── Direct receipt printing via hidden iframe ──────────────
+  // ── Direct receipt printing via hidden popup ──────────────
   var printReceiptUrl = "{{ route('backend.admin.orders.print-receipt', '') }}";
 
   $(document).on('click', '.btn-print-receipt', function () {
     var id = $(this).data('id');
     var url = printReceiptUrl + '/' + id;
-
-    var iframe = document.createElement('iframe');
-    iframe.style.position = 'absolute';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
-    document.body.appendChild(iframe);
-    iframe.src = url;
-
-    // Clean up iframe after a reasonable timeout
-    setTimeout(function () {
-      if (iframe.parentNode) {
-        iframe.parentNode.removeChild(iframe);
-      }
-    }, 30000);
+    window.open(url, 'receipt', 'width=340,height=600,left=200,top=100');
   });
 
 }());

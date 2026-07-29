@@ -161,6 +161,9 @@ export default function Pos() {
             customClass: { actions: "my-actions", cancelButton: "order-1 right-gap", confirmButton: "order-2", denyButton: "order-3" },
         }).then((result) => {
             if (result.isConfirmed) {
+                // Open hidden popup while user gesture is active
+                var printWindow = window.open('', 'receipt', 'width=340,height=600,left=200,top=100');
+
                 axios.put("/admin/order/create", {
                     customer_id: customerId,
                     order_discount: parseFloat(orderDiscount) || 0,
@@ -174,20 +177,15 @@ export default function Pos() {
                     setCartUpdated(!cartUpdated);
                     setProductUpdated(!productUpdated);
                     toast.success(res?.data?.message);
-                    // Print receipt directly via hidden iframe — no page navigation
                     var orderId = res?.data?.order?.id;
-                    if (orderId) {
-                        var iframe = document.createElement('iframe');
-                        iframe.style.position = 'absolute';
-                        iframe.style.width = '0';
-                        iframe.style.height = '0';
-                        iframe.style.border = '0';
-                        document.body.appendChild(iframe);
-                        iframe.src = '/admin/orders/print-receipt/' + orderId;
-                        setTimeout(function () { if (iframe.parentNode) iframe.parentNode.removeChild(iframe); }, 30000);
+                    if (orderId && printWindow && !printWindow.closed) {
+                        printWindow.location.href = '/admin/orders/print-receipt/' + orderId;
                     }
                 })
-                .catch((err) => { playSound(WarningSound); toast.error(getErrorMessage(err), { duration: 6000 }); });
+                .catch((err) => {
+                    if (printWindow && !printWindow.closed) printWindow.close();
+                    playSound(WarningSound); toast.error(getErrorMessage(err), { duration: 6000 });
+                });
             }
         });
     }

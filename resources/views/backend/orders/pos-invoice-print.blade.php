@@ -155,6 +155,8 @@
 
 <script>
   (function () {
+    window.onafterprint = function () { window.close(); };
+
     var printFn = function () {
       window.print();
     };
